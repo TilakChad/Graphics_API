@@ -60,10 +60,10 @@ int main()
 		glUniform1i(color_loc, 0);
 		glBindVertexArray(render_engine.origin_vertex_array);
 		glUseProgram(render_engine.shader_program);
-		glDrawArrays(GL_LINES, 0,30);
+		glDrawArrays(GL_LINES, 0,render_engine.vertices_count[0]/2);
 		glUniform1i(color_loc, 1);
 		glBindVertexArray(render_engine.scr_vertex_array);
-		glDrawArrays(GL_TRIANGLES, 0, 12);
+		glDrawArrays(GL_TRIANGLES, 0, render_engine.vertices_count[1]);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}

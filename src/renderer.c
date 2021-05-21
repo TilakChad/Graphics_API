@@ -99,7 +99,6 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	// So let's start with a scale factor of 0.02f
 
 	frame_buffer->scale_factor = 0.1f;
-
 	frame_buffer->origin_x = 0.0f;
 	frame_buffer->origin_y = 0.0f;
 
@@ -111,43 +110,9 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	// It shouldn't leak memory and no overflows
 
 	// This won't work .. I need some better idea .. Gotta think something
-	float* vertices = malloc(sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 2);
+	// Lets defer the allocation of memory after all vertices are covered. It shouldn't be exact. 
+	float* vertices = malloc(sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 4 * 2);
 	int indices = 0;
-
-	//vertices[indices++] = -1.0f;
-	//vertices[indices++] = 0;
-	//vertices[indices++] = 1.0f;
-	//vertices[indices++] = 0;
-
-	//for (float y = 0.1f; y <= 1.05f; y+=0.1f)
-	//{
-	//	vertices[indices++] = -1.0f;
-	//	vertices[indices++] = y;
-	//	vertices[indices++] = 1.0f;
-	//	vertices[indices++] = y;
-	//	vertices[indices++] = -1.0f;
-	//	vertices[indices++] = -y;
-	//	vertices[indices++] = 1.0f;
-	//	vertices[indices++] = -y;
-	//}
-
-	//auto k = 1;
-	//vertices[indices++] = 0.0f;
-	//vertices[indices++] = -1.0f;
-	//vertices[indices++] = 0.0f;
-	//vertices[indices++] = 1.0f;
-
-	//for (float x = 0.1f/aspect_ratio; x <= 1.05/aspect_ratio; x += 0.1f/aspect_ratio)
-	//{
-	//	vertices[indices++] = x;
-	//	vertices[indices++] = -1.0f;
-	//	vertices[indices++] = x;
-	//	vertices[indices++] = 1.0f;
-	//	vertices[indices++] = -x;
-	//	vertices[indices++] = -1.0f;
-	//	vertices[indices++] = -x;
-	//	vertices[indices++] = 1.0f;
-	//}
 
 
 	// Start with origin and start calculating the index at which line will be visible in the frame buffer
@@ -166,16 +131,28 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	float y_top = 0, y_bottom = 0;
 	int y_top_count = 0;
 	int y_bottom_count = 0;
-	frame_buffer->origin_x = 0.7f;
-	frame_buffer->scale_factor = 0.15;
+	frame_buffer->origin_x = 0.0f;
+	frame_buffer->scale_factor = 0.25f;
+	
+	calculate_coordinate(frame_buffer->origin_x, frame_buffer->scale_factor / aspect_ratio, &x_left, &x_right, &x_left_count, &x_right_count);
 
 	fprintf(stderr, "x_left and x_right determined with scale factors are : %f %f %f.\n", x_left, x_right, frame_buffer->scale_factor);
 	// Draw the shifted lines 
 	// Do similiar for y-coordinate now 
 	
-	indices = 0;
+	calculate_coordinate(frame_buffer->origin_y, frame_buffer->scale_factor, &y_bottom, &y_top, &y_bottom_count, &y_top_count);
 
-	for (float i = x_left; i <= x_right + 0.0001; i += frame_buffer->scale_factor)
+	fprintf(stderr, "\ny_bottom and y_top determined are : %f %f.", y_bottom, y_top);
+	
+	// Good it works now .. Now I am gonna implement set pixel function
+	// A limited frame buffer isn't the option here .. so might use a array of point that will record set pixel
+	// and render the pixel once they are within the visible viewport
+
+	indices = 0;
+	int count_lines = (x_right - x_left) / (frame_buffer->scale_factor / aspect_ratio) + 0.5 + 1;
+	count_lines += (y_top - y_bottom) / frame_buffer->scale_factor + 0.5 + 1;
+
+	for (float i = x_left; i <= x_right + 0.0001; i += frame_buffer->scale_factor / aspect_ratio)
 	{
 		vertices[indices++] = i;
 		vertices[indices++] = -1.0f;
@@ -183,6 +160,15 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 		vertices[indices++] = 1.0f;
 	}
 
+	for (float y = y_bottom; y <= y_top + 0.0001f; y += frame_buffer->scale_factor)
+	{
+		vertices[indices++] = -1.0f;
+		vertices[indices++] = y;
+		vertices[indices++] = 1.0f;
+		vertices[indices++] = y;
+	}
+
+	printf("\nTotal indices were : %d and total line counts were %d.", indices,count_lines);
 	// Create a vertex array object
 	glGenVertexArrays(1, &render_engine->origin_vertex_array);
 	glBindVertexArray(render_engine->origin_vertex_array);
@@ -190,19 +176,26 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	GLuint VBO;
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 2, vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 4 * 2, vertices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
 	glBindVertexArray(0);
-
+	render_engine->vertices_count[0] = count_lines * 4;
 	// Origin layout 
 
 	origin_border(render_engine, frame_buffer);
 
 	// Its a trivial case to map to ndc now
-	Point ndc;
+	// Initialize the plotted pointy thingy
+	frame_buffer->plotted_points.size = 0;
+	frame_buffer->plotted_points.capacity = 0;
 
+	// Lets allocate a capacity for 1000 points for now 
+	frame_buffer->plotted_points.points = malloc(sizeof(Point) * 1000);
+	frame_buffer->plotted_points.capacity = 1000;
+
+	frame_buffer->plotted_points.points[0] =(Point) { 1,1 };
 	return 0;
 }
 
@@ -269,45 +262,52 @@ void origin_border(Renderer* render_engine, frameBuffer* frame_buffer)
 }
 
 // function to calculate left, right, top, bottom co-ordinate in ndc and its respecitve cartesian co-ordinate to 
-void calculate_coordinate(float origin,float x, float* left, float* right, int* first_coord, int* second_coord)
+void calculate_coordinate(float origin, float scale, float* left, float* right, int* first_coord, int* second_coord)
 {
+	float left_ndc = 0;
+	float right_ndc = 0;
+	int left_coord = 0;
+	int right_coord = 0;
 
-	if (fabs(frame_buffer->origin_x) > 1)
+	if (fabs(origin) > 1)
 	{
-		if (frame_buffer->origin_x > 1)
+		if (origin > 1)
 		{
-			x_right = (frame_buffer->origin_x - 1) / frame_buffer->scale_factor;
-			x_right_count = -ceilf(x_right);
-			x_right = frame_buffer->origin_x - frame_buffer->scale_factor * (-x_right_count);
+			right_ndc = (origin - 1) / scale;
+			right_coord = -ceilf(right_ndc);
+			right_ndc = origin - scale * (-right_coord);
 
-			// calculate the x_right with above information now 
-			x_left = (x_right + 1) / frame_buffer->scale_factor;
-			x_left_count = x_right_count - floorf(x_left);
-			x_left = x_right - (int)floorf(x_left) * frame_buffer->scale_factor;
+			// calculate the right_ndc and right_coord with above information now 
+			left_ndc = (right_ndc + 1) / scale;
+			left_coord = right_coord - floorf(left_ndc);
+			left_ndc = right_ndc - (int)floorf(left_ndc) * scale;
 		}
 		else
 		{
-			x_left = (-1.0f - frame_buffer->origin_x) / frame_buffer->scale_factor;
-			x_left_count = ceilf(x_left);
-			x_left = frame_buffer->origin_x + frame_buffer->scale_factor * x_left_count;
+			left_ndc = (-1.0f - origin) / scale;
+			left_coord = ceilf(left_ndc);
+			left_ndc = origin + scale * left_coord;
 
 			// Again use above information to calculate the right co ordinate and starting position
 			// It should be precise
-			x_right = (1 - x_left) / frame_buffer->scale_factor;
-			x_right_count = x_left_count + floorf(x_right);
-			x_right = x_left + (int)floorf(x_right) * frame_buffer->scale_factor;
+			right_ndc = (1 - left_ndc) / scale;
+			right_coord = left_coord + floorf(right_ndc);
+			right_ndc = left_ndc + (int)floorf(right_ndc) * scale;
 		}
 	}
 	else
 	{
 		// Origin is within the frame_buffer .. just calculate the x_left and x_right
-		x_left = (frame_buffer->origin_x + 1.0f) / frame_buffer->scale_factor;
-		x_left_count = -floorf(x_left);
-		x_left = frame_buffer->origin_x - frame_buffer->scale_factor * (-x_left_count);
+		left_ndc = (origin + 1.0f) / scale;
+		left_coord = -floorf(left_ndc);
+		left_ndc = origin - scale * (-left_coord);
 
-		x_right = (1.0f - frame_buffer->origin_x) / frame_buffer->scale_factor;
-		x_right_count = floorf(x_right);
-		x_right = frame_buffer->origin_x + x_right_count * frame_buffer->scale_factor;
+		right_ndc = (1.0f - origin) / scale;
+		right_coord = floorf(right_ndc);
+		right_ndc = origin + right_coord * scale;
 	}
-
+	*left = left_ndc;
+	*first_coord = left_coord;
+	*right = right_ndc;
+	*second_coord = right_coord;
 }
