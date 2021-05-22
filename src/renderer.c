@@ -127,7 +127,6 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	// Initialize the plot detail properly
 	render_engine->plot.contain_VBO = false;
 
-
 	update_plot(render_engine, frame_buffer, aspect_ratio);
 	return 0;
 }
@@ -329,6 +328,17 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	glEnableVertexAttribArray(0);
 	glBindVertexArray(0);
 	render_engine->vertices_count[0] = count_lines * 4;
+
+	// Completely forgot to update the information about current plotting range to frame_buffer
+	frame_buffer->plot_info.bottom = y_bottom;
+	frame_buffer->plot_info.top = y_top;
+	frame_buffer->plot_info.left = x_left;
+	frame_buffer->plot_info.right = x_right;
+
+	frame_buffer->plot_info.left_coord = x_left_count;
+	frame_buffer->plot_info.right_coord = x_right_count;
+	frame_buffer->plot_info.bottom_coord = y_bottom_count;
+	frame_buffer->plot_info.top_coord = y_top_count;
 }
 
 void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspect_ratio)
@@ -376,32 +386,67 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspec
 
 	// Let's not implement out-of-frame origin for now 
 
-	float* pixel_vertices = malloc(sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size);
+	// float* pixel_vertices = malloc(sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size);
 
 	Point* points = frame_buffer->plotted_points.points;
-
-	fprintf(stderr, "\nPoint to be plotted is %f %f.", points[0].x, points[0].y);
+	if (frame_buffer->plotted_points.size)
+		fprintf(stderr, "\nPoint to be plotted is %f %f.", points[0].x, points[0].y);
 	int indices = 0;
+
+	// For efficient plotting let's fix the plot criteria
+	// Points are to be plotted if they are in visible area of the screen
+	// Various factors like panning, moving or scaling might change the co-ordinates that are currently visible in the area
+	// so analyze each point and plot it only if it is within the current visible scren
+
+	fprintf(stderr, "\n\nValues are : %d %d and %d %d.", frame_buffer->plot_info.left_coord, frame_buffer->plot_info.right_coord, frame_buffer->plot_info.bottom_coord, frame_buffer->plot_info.top_coord);
+
+	// Again might need to do a double pass to allocate points that are within the visible region
+
+	int visible_pixels = 0;
 	for (int i = 0; i < frame_buffer->plotted_points.size; ++i)
 	{
-		pixel_vertices[indices++] = origin_x + points[i].x * scale/aspect_ratio;
-		pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
-		pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
-		pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
-		pixel_vertices[indices++] = origin_x + points[i].x * scale/aspect_ratio;
-		pixel_vertices[indices++] = origin_y + points[i].y * scale;
+		if (!
+			((points[i].x < frame_buffer->plot_info.left_coord - 1) ||
+				(points[i].x > frame_buffer->plot_info.right_coord) ||
+				(points[i].y < frame_buffer->plot_info.bottom_coord - 1) ||
+				(points[i].y > frame_buffer->plot_info.top_coord)))
+		{
+			visible_pixels++;
+		}
+	}
+	// Allocate the memory accordingly ... Don't waste more memory 
+	float* pixel_vertices = malloc(sizeof(float) * visible_pixels * 6 * 2);
+
+	for (int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	{
+		// Looks ugly, righ? 
+		// Go ahead and use the De-Morgans law on the below boolean expression
+		if (!
+			((points[i].x < frame_buffer->plot_info.left_coord - 1) ||
+			(points[i].x > frame_buffer->plot_info.right_coord) ||
+			(points[i].y < frame_buffer->plot_info.bottom_coord - 1) ||
+			(points[i].y > frame_buffer->plot_info.top_coord)))
+		{
+
+			pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
+			pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+			pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+			pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+			pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
+			pixel_vertices[indices++] = origin_y + points[i].y * scale;
 
 
-		pixel_vertices[indices++] = origin_x + points[i].x * scale/aspect_ratio;
-		pixel_vertices[indices++] = origin_y + points[i].y * scale;
-		pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
-		pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
-		pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
-		pixel_vertices[indices++] = origin_y + points[i].y * scale;
+			pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
+			pixel_vertices[indices++] = origin_y + points[i].y * scale;
+			pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+			pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+			pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+			pixel_vertices[indices++] = origin_y + points[i].y * scale;
+		}
 	}
 
 	
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size, pixel_vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 2 * visible_pixels, pixel_vertices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -409,6 +454,7 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspec
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	render_engine->vertices_count[2] = indices;
+	fprintf(stderr, "\n\nValue of the indices are : %d and total visible pixels are %d.", indices, visible_pixels);
 }
 
 void setPixel(frameBuffer* frame_buffer, Point p)
