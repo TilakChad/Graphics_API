@@ -72,5 +72,7 @@ void setPixel(frameBuffer* frame_buffer, Point p);
 // will consider it later.. just going with array for now
 void resetPixel(frameBuffer* frame_buffer, Point p);
 
+void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer, float aspect_ratio);
+
 
 #endif
