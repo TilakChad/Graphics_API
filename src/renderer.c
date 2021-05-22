@@ -10,7 +10,7 @@ static void calculate_coordinate(float origin_x_or_y, float scale, float* left_o
 static void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspect_ratio);
 
 static int allocate_more(frameBuffer* frame_buffer);
-static void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer, float aspect_ratio);
+void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer, float aspect_ratio);
 
 // Hehe.. can't simply pass the plotted_points struct cause it has already been declared anonymously 
 static bool contains(frameBuffer* frame_buffer);
@@ -105,8 +105,8 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	// So let's start with a scale factor of 0.02f
 
 	frame_buffer->scale_factor = 0.1f;
-	frame_buffer->origin_x = 0.0f;
-	frame_buffer->origin_y = 0.0f;
+	frame_buffer->origin_x = -0.5f;
+	frame_buffer->origin_y = -0.5f;
 
 	for (int i = 0; i < 3; ++i) 
 		render_engine->vertices_count[i] = 0;
@@ -116,16 +116,17 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	origin_border(render_engine, frame_buffer);
 
 	// Initialize the plotted pointy thingy
-	frame_buffer->plotted_points.size = 1;
+	frame_buffer->plotted_points.size = 0;
 	frame_buffer->plotted_points.capacity = 0;
 
 	// Lets allocate a capacity for 1000 points for now 
 	frame_buffer->plotted_points.points = malloc(sizeof(Point) * 1000);
 	frame_buffer->plotted_points.capacity = 1000;
 
-	frame_buffer->plotted_points.points[0] =(Point) { 1,1 };
-
 	// Now update the points that need to be plotted and set by the user ...
+	// Initialize the plot detail properly
+	render_engine->plot.contain_VBO = false;
+
 
 	update_plot(render_engine, frame_buffer, aspect_ratio);
 	return 0;
@@ -255,7 +256,7 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 
 // This won't work .. I need some better idea .. Gotta think something
 // Lets defer the allocation of memory after all vertices are covered. It shouldn't be exact. 
-	float* vertices = malloc(sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 4 * 2);
+	// float* vertices = malloc(sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 4 * 2);
 	int indices = 0;
 
 
@@ -276,7 +277,7 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	int y_top_count = 0;
 	int y_bottom_count = 0;
 	frame_buffer->origin_x = 0.0f;
-	frame_buffer->scale_factor = 0.2f;
+	frame_buffer->scale_factor = 0.25f;
 
 	calculate_coordinate(frame_buffer->origin_x, frame_buffer->scale_factor / aspect_ratio, &x_left, &x_right, &x_left_count, &x_right_count);
 
@@ -296,6 +297,8 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	int count_lines = (x_right - x_left) / (frame_buffer->scale_factor / aspect_ratio) + 0.5 + 1;
 	count_lines += (y_top - y_bottom) / frame_buffer->scale_factor + 0.5 + 1;
 
+	// Allocate enough memory for vertices 
+	float* vertices = malloc(sizeof(float) * count_lines * 4 * 2);
 	for (float i = x_left; i <= x_right + 0.0001; i += frame_buffer->scale_factor / aspect_ratio)
 	{
 		vertices[indices++] = i;
@@ -320,7 +323,7 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	GLuint VBO;
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 4 * 2, vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (count_lines * 4) * 2, vertices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -330,31 +333,40 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 
 void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspect_ratio)
 {
+	if (render_engine->plot.contain_VBO)
+	{
+		glDeleteBuffers(1, &render_engine->plot.plot_VBO);
+		glDeleteVertexArrays(1, &render_engine->plot.plot_VAO);
+	}
+
+	// Set it so that in next turn gpu memory can be freed safely
+	render_engine->plot.contain_VBO = true; 
+
 	glGenVertexArrays(1, &render_engine->plot.plot_VAO);
 	glBindVertexArray(render_engine->plot.plot_VAO);
 
 	glGenBuffers(1, &render_engine->plot.plot_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, render_engine->plot.plot_VBO);
 
-	float x = frame_buffer->origin_x;
-	float y = frame_buffer->origin_y;
+	float origin_x = frame_buffer->origin_x;
+	float origin_y = frame_buffer->origin_y;
 	float scale = frame_buffer->scale_factor;
 
-	fprintf(stderr, "\nOrigin and scale factor are -> %f %f -> %f.", x, y, scale);
+	fprintf(stderr, "\nOrigin and scale factor are -> %f %f -> %f.",origin_x, origin_y, scale);
 
-	/* 
+	/*
 	*
 (x,y+1)	_____ (x+1,y+1)
-	   |	 |	
+	   |	 |
 	   |(x,y)|
 	   |_____|
-	(x,y)     (x+1,y)	
+	(x,y)     (x+1,y)
 	*
 	*/
-	
-	float vertices[] = { x , y, x + 1 * scale / aspect_ratio, y, x + 1 * scale / aspect_ratio,y + 1 * scale,
-						 x + 1 * scale / aspect_ratio,y + 1 * scale, x,y + 1 * scale,x,y };
-	
+
+	// float vertices[] = { x , y, x + 1 * scale / aspect_ratio, y, x + 1 * scale / aspect_ratio,y + 1 * scale,
+	//					 x + 1 * scale / aspect_ratio,y + 1 * scale, x,y + 1 * scale,x,y };
+
 	// Need to allocate enough memory 
 	// Each point is going to take 6 vertices 
 	// Ok that's it 
@@ -364,24 +376,39 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspec
 
 	// Let's not implement out-of-frame origin for now 
 
-	float* pixel_vertices = malloc(sizeof(float) * 6 * frame_buffer->plotted_points.size);
-	
+	float* pixel_vertices = malloc(sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size);
+
 	Point* points = frame_buffer->plotted_points.points;
 
+	fprintf(stderr, "\nPoint to be plotted is %f %f.", points[0].x, points[0].y);
 	int indices = 0;
 	for (int i = 0; i < frame_buffer->plotted_points.size; ++i)
 	{
+		pixel_vertices[indices++] = origin_x + points[i].x * scale/aspect_ratio;
+		pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+		pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+		pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+		pixel_vertices[indices++] = origin_x + points[i].x * scale/aspect_ratio;
+		pixel_vertices[indices++] = origin_y + points[i].y * scale;
 
+
+		pixel_vertices[indices++] = origin_x + points[i].x * scale/aspect_ratio;
+		pixel_vertices[indices++] = origin_y + points[i].y * scale;
+		pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+		pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+		pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+		pixel_vertices[indices++] = origin_y + points[i].y * scale;
 	}
+
 	
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size, pixel_vertices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
+	render_engine->vertices_count[2] = indices;
 }
 
 void setPixel(frameBuffer* frame_buffer, Point p)
