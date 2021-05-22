@@ -57,13 +57,20 @@ int main()
 	{
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+		glUseProgram(render_engine.shader_program);
+		
 		glUniform1i(color_loc, 0);
 		glBindVertexArray(render_engine.origin_vertex_array);
-		glUseProgram(render_engine.shader_program);
 		glDrawArrays(GL_LINES, 0,render_engine.vertices_count[0]/2);
+
+		glUniform1i(color_loc, 2);
+		glBindVertexArray(render_engine.plot.plot_VAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		
 		glUniform1i(color_loc, 1);
 		glBindVertexArray(render_engine.scr_vertex_array);
 		glDrawArrays(GL_TRIANGLES, 0, render_engine.vertices_count[1]);
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}

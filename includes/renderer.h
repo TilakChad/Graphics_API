@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 
 typedef struct Point
 {
@@ -27,7 +28,7 @@ typedef struct Renderer
 	{
 		bool contain_VBO; // Check this flag before deleting the bound VBO.. be safe.. Its functional
 		GLuint plot_VBO;
-		GLuint plot_VAO; // Not going to use element array now .. Using the same set of shaders for now
+		GLuint plot_VAO; // Not going to use element array now .. And using the same set of shaders for now
 	} plot;
 } Renderer;
 
@@ -45,6 +46,11 @@ typedef struct frameBuffer
 		Point* points; 
 	} plotted_points;
 
+	struct
+	{
+		float left, right, top, bottom;
+		int left_coord, right_coord, top_coord, bottom_coord;
+	}plot_info;
 }frameBuffer;
 
 
@@ -54,4 +60,17 @@ void reset_frame_buffer(frameBuffer* frame_buffer);
 
 void compile_and_log_shaders(struct shader*, int shader_type);
 int load_shader_from_file(struct shader* shaders, const char* vertex_shader_path, const char* fragment_shader_path);
+
+// set the corresponding pixel 
+// each pixel is a square whose dimension depends upon the scale factor and the height of the 
+// window
+
+void setPixel(frameBuffer* frame_buffer, Point p);
+
+// Reset the given pixel
+// For pixel deletion another data structure than array might be useful I guess
+// will consider it later.. just going with array for now
+void resetPixel(frameBuffer* frame_buffer, Point p);
+
+
 #endif
