@@ -19,8 +19,22 @@ typedef struct shader
 
 typedef struct Renderer
 {
-	GLuint scr_vertex_array;
-	GLuint origin_vertex_array;
+	// Could've made a different struct instead of using anonymous.. but its ok. It was a later addition .. so didn't consider it changing
+
+	struct
+	{
+		bool contain_VBO;
+		GLuint grid_VBO;
+		GLuint grid_VAO;
+	} grid;
+
+	struct
+	{
+		bool contain_VBO;
+		GLuint origin_VBO;
+		GLuint origin_VAO;
+	} origin;
+
 	GLuint shader_program;
 	GLuint vertices_count[3];
 	// ok let's include them here too
@@ -39,6 +53,7 @@ typedef struct frameBuffer
 	/*Point scale_factor;*/
 	// scale factor is going to be same.. i.e every pixel will be perfect square
 	GLfloat scale_factor;
+	GLfloat aspect_ratio;
 	struct
 	{
 		unsigned int size;
@@ -72,7 +87,9 @@ void setPixel(frameBuffer* frame_buffer, Point p);
 // will consider it later.. just going with array for now
 void resetPixel(frameBuffer* frame_buffer, Point p);
 
-void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer, float aspect_ratio);
+void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer);
+
+void update_frame(Renderer* render_engine, frameBuffer* frame_buffer);
 
 
 #endif
