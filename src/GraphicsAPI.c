@@ -40,7 +40,16 @@ void DDA_line(Plotter* plot_device, int x1, int y1, int x2, int y2)
 int main()
 {
 	Plotter* plot_device = createPlotter(1200, 800, 0.0);
-	DDA_line(plot_device, 1, 0, 7, 4);
+
+	// DDA_line(plot_device, 1, 0, 7, 4);
+
+	for (int i = -3; i < 5; ++i)
+	{
+		for (int j = -3; j < 5; ++j)
+		{
+			plotPixel(plot_device, i, j);
+		}
+	}
 
 	updatePixel(plot_device);
 	// Once plotting started it can't be modified as of now.. Need to modify it to work like that though 
