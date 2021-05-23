@@ -167,6 +167,7 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	render_engine->origin.contain_VBO = false;
 
 	update_plot(render_engine, frame_buffer);
+	render_engine->render_type = RENDER_ALL;
 	return 0;
 }
 
@@ -291,15 +292,16 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer)
 	int y_bottom_count = 0;
 
 	calculate_coordinate(frame_buffer->origin_x, frame_buffer->scale_factor / aspect_ratio, &x_left, &x_right, &x_left_count, &x_right_count);
-
-	fprintf(stderr, "x_left and x_right determined with scale factors are : %f %f %f.\n", x_left, x_right, frame_buffer->scale_factor);
-	// Draw the shifted lines 
 	// Do similiar for y-coordinate now 
 
 	calculate_coordinate(frame_buffer->origin_y, frame_buffer->scale_factor, &y_bottom, &y_top, &y_bottom_count, &y_top_count);
 
+#ifdef EN_LOG
+	fprintf(stderr, "\nCurrent scale factor is -> %f.", frame_buffer->scale_factor);
+	fprintf(stderr, "\nx_left and x_right determined are : %f %f.", x_left, x_right);
 	fprintf(stderr, "\ny_bottom and y_top determined are : %f %f.", y_bottom, y_top);
-
+#endif
+	// Draw the shifted lines 
 	// Good it works now .. Now I am gonna implement set pixel function
 	// A limited frame buffer isn't the option here .. so might use a array of point that will record set pixel
 	// and render the pixel once they are within the visible viewport
@@ -312,21 +314,28 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer)
 	float* vertices = malloc(sizeof(float) * count_lines * 4 * 2);
 	for (float x = x_left; x-x_right < 0.00001f ; x += frame_buffer->scale_factor / aspect_ratio)
 	{
+		// Don't try to increase indices beyond allocated memory
+		if (indices < count_lines * 4 * 2)
+		{
 			vertices[indices++] = x;
 			vertices[indices++] = -1.0f;
 			vertices[indices++] = x;
 			vertices[indices++] = 1.0f;
+		}
 	}
 
 	int i = 0;
 	for (float y = y_bottom; y-y_top < 0.00001f ; y += frame_buffer->scale_factor)
 	{
+		if (indices < count_lines * 4 * 2)
+		{
 			vertices[indices++] = -1.0f;
 			vertices[indices++] = y;
 			vertices[indices++] = 1.0f;
 			vertices[indices++] = y;
+		}
 	}
-	printf("\nTotal indices were : %d and total line counts were %d.", indices, count_lines);
+	// printf("\nTotal indices were : %d and total line counts were %d.", indices, count_lines);
 
 	// Create a vertex array object
 	// Check if the buffer has already been allocated
@@ -361,8 +370,11 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer)
 	frame_buffer->plot_info.bottom_coord = y_bottom_count;
 	frame_buffer->plot_info.top_coord = y_top_count;
 
-	printf("\n\nY_bottom and Y-top are :-> %d %d.\n", y_bottom_count, y_top_count);
-
+#ifdef EN_LOG
+	printf("\n\t\t\t Cartesian co-ordinates : \n");
+	printf("\nLeftmost x co-ord and rightmost x co-ord are -> %d and %d.", x_left_count, x_left_count);
+	printf("\nBottom y co-ord and top y co-ord are :-> %d %d.\n", y_bottom_count, y_top_count);
+#endif
 	// Freed memory
 	free(vertices);
 }
@@ -454,21 +466,23 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 			(points[i].y < frame_buffer->plot_info.bottom_coord - 1) ||
 			(points[i].y > frame_buffer->plot_info.top_coord)))
 		{
+			if (indices < visible_pixels * 6 * 2)
+			{
+				pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
+				pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+				pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+				pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+				pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
+				pixel_vertices[indices++] = origin_y + points[i].y * scale;
 
-			pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
-			pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
-			pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
-			pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
-			pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
-			pixel_vertices[indices++] = origin_y + points[i].y * scale;
 
-
-			pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
-			pixel_vertices[indices++] = origin_y + points[i].y * scale;
-			pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
-			pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
-			pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
-			pixel_vertices[indices++] = origin_y + points[i].y * scale;
+				pixel_vertices[indices++] = origin_x + points[i].x * scale / aspect_ratio;
+				pixel_vertices[indices++] = origin_y + points[i].y * scale;
+				pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+				pixel_vertices[indices++] = origin_y + (points[i].y + 1) * scale;
+				pixel_vertices[indices++] = origin_x + (points[i].x + 1) * scale / aspect_ratio;
+				pixel_vertices[indices++] = origin_y + points[i].y * scale;
+			}
 		}
 	}
 
@@ -481,7 +495,11 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	render_engine->vertices_count[2] = indices;
-	fprintf(stderr, "\n\nValue of the indices are : %d and total visible pixels are %d.", indices, visible_pixels);
+#ifdef EN_LOG
+	fprintf(stderr, "\nFrame info -> ");
+	fprintf(stderr, "\nValue of the indices are : %d.\nTotal visible pixels are %d.", indices, visible_pixels);
+	fprintf(stderr, "\nTotal illuminated pixels are : %u.", frame_buffer->plotted_points.size);
+#endif
 	free(pixel_vertices);
 }
 
