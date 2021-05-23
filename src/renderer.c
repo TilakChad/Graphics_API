@@ -141,7 +141,7 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 	// I think these need to be determined dynamically too 
 	// So let's start with a scale factor of 0.02f
 
-	frame_buffer->scale_factor = 0.001f;
+	frame_buffer->scale_factor = 0.25f;
 	frame_buffer->origin_x = 0.0f;
 	frame_buffer->origin_y = 0.0f;
 
@@ -389,7 +389,7 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 	float origin_y = frame_buffer->origin_y;
 	float scale = frame_buffer->scale_factor;
 
-	fprintf(stderr, "\nOrigin and scale factor are -> %f %f -> %f.",origin_x, origin_y, scale);
+	//fprintf(stderr, "\nOrigin and scale factor are -> %f %f -> %f.",origin_x, origin_y, scale);
 
 	/*
 	*
@@ -416,8 +416,8 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 	// float* pixel_vertices = malloc(sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size);
 
 	Point* points = frame_buffer->plotted_points.points;
-	if (frame_buffer->plotted_points.size)
-		fprintf(stderr, "\nPoint to be plotted is %f %f.", points[0].x, points[0].y);
+	//if (frame_buffer->plotted_points.size)
+	//	fprintf(stderr, "\nPoint to be plotted is %f %f.", points[0].x, points[0].y);
 	int indices = 0;
 
 	// For efficient plotting let's fix the plot criteria
@@ -425,7 +425,7 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 	// Various factors like panning, moving or scaling might change the co-ordinates that are currently visible in the area
 	// so analyze each point and plot it only if it is within the current visible scren
 
-	fprintf(stderr, "\n\nValues are : %d %d and %d %d.", frame_buffer->plot_info.left_coord, frame_buffer->plot_info.right_coord, frame_buffer->plot_info.bottom_coord, frame_buffer->plot_info.top_coord);
+	// fprintf(stderr, "\n\nValues are : %d %d and %d %d.", frame_buffer->plot_info.left_coord, frame_buffer->plot_info.right_coord, frame_buffer->plot_info.bottom_coord, frame_buffer->plot_info.top_coord);
 
 	// Again might need to do a double pass to allocate points that are within the visible region
 
