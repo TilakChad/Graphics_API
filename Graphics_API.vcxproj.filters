@@ -24,7 +24,7 @@
     <ClCompile Include="src\renderer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\GraphicsAPI.c">
+    <ClCompile Include="src\graphics.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

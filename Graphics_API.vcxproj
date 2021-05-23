@@ -20,7 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad\src\glad.c" />
-    <ClCompile Include="src\GraphicsAPI.c" />
+    <ClCompile Include="src\graphics.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\renderer.c" />
   </ItemGroup>
