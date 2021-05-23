@@ -7,6 +7,7 @@
 #include <math.h>
 #include <time.h>
 
+
 void DDA_line(frameBuffer* frame_buffer, int x1, int y1, int x2, int y2);
 float absolute(float x);
 
@@ -20,6 +21,15 @@ typedef struct UserPtr {
 	Renderer* render_ptr;
 	frameBuffer* frame_ptr;
 } UserPtr;
+
+typedef struct mouse_state
+{
+	double xpos, ypos;
+	bool is_was_pressed; // :D 
+} mouse_state;
+
+// It will take the current cursor position and move the frame if dragged
+void mouse_panning(GLFWwindow* window, mouse_state* mouse); // will get other information from userPoiner 
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -83,6 +93,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	// Don't know how yoffset will scrolling produce and how it should be scaled for .. Gotta expermient some
 	fprintf(stderr, "\nY-offset produced is : %lf.",yoffset);
 	// so, rolling upward produce +1 offset and rolling toward you produce -1 offset
+	// haha .. scroll fast and it will still produce an offset of +- 1 
+	// 	   Scroll it super fast and voila.. you got +- 2 offset
+	// Not interesting, right? .. But its enough to crash your already crashing program.  
 	// scaling operation is centered arond origin ..As a result, pixel position may change wrt to distance from origin.
 	// so visible plotted point may not be visible in that frame. Scaling is uniform. 
 	// 1 offset -> 0.02f
@@ -104,6 +117,15 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 		update_frame(ptr->render_ptr, ptr->frame_ptr);
 	}
 }
+
+// Ok good to go 
+// Now we will go for panning ..i.e moving the graph with mouse drag (:D Don't know if panning is the right word here though)
+// To support panning we need to check if the mouse button is kept pressed and it is changing 
+// Previous state of mouse and its position need to be stored and depending upon the difference in x and y coordinate of current 
+// and previous state 
+// hahaha .. let's put that into already passed struct frame_buffer .. Not relevant right .. but better than passing a new struct all over again
+
+
 
 int main()
 {
@@ -153,6 +175,10 @@ int main()
 	// sine_x(&frame_buffer, 0, 180);
 	update_plot(&render_engine, &frame_buffer);
 
+	mouse_state cursor_state;
+	cursor_state.is_was_pressed = false;
+	cursor_state.xpos = 0;
+	cursor_state.ypos = 0;
 
 	GLuint color_loc = glGetUniformLocation(render_engine.shader_program, "color_code");
 	clock_t now = clock(), then = clock();
@@ -179,6 +205,7 @@ int main()
 		//fprintf(stderr, "\nFPS is -> %f.", (double)(now - then) / CLOCKS_PER_SEC);
 		then = now;
 		handle_key_press(window, &render_engine, &frame_buffer);
+		mouse_panning(window, &cursor_state);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
@@ -215,7 +242,7 @@ void DDA_line(frameBuffer* frame_buffer, int x1, int y1, int x2, int y2)
 		setPixel(frame_buffer, (Point) { (int)(x + 0.5f), (int)(y + 0.5f) });
 		x += dx;
 		y += dy;
-		printf("%f %f\n", x, y);
+		//printf("%f %f\n", x, y);
 	}
 }
 
@@ -232,4 +259,54 @@ void sine_x(frameBuffer* frame_buffer, float x, float y1)
 		y = sin(i * 3.141592f / 180);
 		setPixel(frame_buffer, (Point) { i, (int)(y * 90 + 0.5) });
 	}
+}
+
+void mouse_panning(GLFWwindow* window, mouse_state* cursor)
+{
+	if (!cursor->is_was_pressed)
+	{
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+		{
+			cursor->is_was_pressed = true;
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+			cursor->xpos = xpos;
+			cursor->ypos = ypos;
+		}
+		return;
+	}
+	else
+	{
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS)
+		{
+			cursor->is_was_pressed = false;
+			return;
+		}
+		// This else is the case we are going to handle now below 
+	}
+
+	double x_pos, y_pos;
+	glfwGetCursorPos(window, &x_pos, &y_pos);
+
+	// It will perform the dragging operation now.. It's quite simple though.. Only origin need to be shifted
+	// Every other thing will be handled auto 
+	// Maybe I should try converting the obtained position in ndc and then update .. later
+
+	double delta_xpos = x_pos - cursor->xpos;
+	double delta_ypos = y_pos - cursor->ypos;
+
+	// Ok .. to normalize this we need the information about current context ... but we don't have that one..
+	// Let's hardcode it
+	float dx = delta_xpos / 2400;
+	float dy = delta_ypos / 1600;
+
+	// Maybe I should minimize use of userpointer . Don't know the performance penalty yet
+	UserPtr* ptr = (UserPtr*)glfwGetWindowUserPointer(window);
+	ptr->frame_ptr->origin_x += dx;
+	ptr->frame_ptr->origin_y -= dy;
+	update_frame(ptr->render_ptr, ptr->frame_ptr);
+
+	// Forgot to update the cursor_position 
+	cursor->xpos = x_pos;
+	cursor->ypos = y_pos;
 }
