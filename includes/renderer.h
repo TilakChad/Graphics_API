@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
 typedef struct Point
 {
@@ -44,6 +45,12 @@ typedef struct Renderer
 		GLuint plot_VBO;
 		GLuint plot_VAO; // Not going to use element array now .. And using the same set of shaders for now
 	} plot;
+
+	// it's verbose but its ok for now 
+	enum
+	{
+		RENDER_ALL, RENDER_NO_GRIDS, RENDER_NO_ORIGIN, RENDER_NO_PIXELS, RENDER_NO_GRIDS_AND_ORIGINS
+	} render_type;
 } Renderer;
 
 typedef struct frameBuffer
@@ -86,9 +93,7 @@ void setPixel(frameBuffer* frame_buffer, Point p);
 // For pixel deletion another data structure than array might be useful I guess
 // will consider it later.. just going with array for now
 void resetPixel(frameBuffer* frame_buffer, Point p);
-
 void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer);
-
 void update_frame(Renderer* render_engine, frameBuffer* frame_buffer);
 
 
