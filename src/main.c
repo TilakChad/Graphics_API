@@ -1,32 +1,11 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "../includes/renderer.h"
+#include "../includes/GraphicsAPI.h"
 #include <math.h>
 #include <time.h>
 
-
-void DDA_line(frameBuffer* frame_buffer, int x1, int y1, int x2, int y2);
-float absolute(float x);
-
-
-// GLFW API provide a function with which we can set a single pointer and retrieve it wherever we desire
-// But we may not to pass more pointers sometimes.
-// So, wrapping the pointers within a struct might be the good choice. At least, that's what I am going to do.
-// Its the struct whose pointer we are going to retrieve in the callback function.
-
-typedef struct UserPtr {
-	Renderer* render_ptr;
-	frameBuffer* frame_ptr;
-} UserPtr;
-
-typedef struct mouse_state
-{
-	double xpos, ypos;
-	bool is_was_pressed; // :D 
-} mouse_state;
 
 // It will take the current cursor position and move the frame if dragged
 void mouse_panning(GLFWwindow* window, mouse_state* mouse); // will get other information from userPoiner 
@@ -91,7 +70,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	// Mouse wheel only provide offset in y direction .. 
 	// Don't know how yoffset will scrolling produce and how it should be scaled for .. Gotta expermient some
-	fprintf(stderr, "\nY-offset produced is : %lf.",yoffset);
 	// so, rolling upward produce +1 offset and rolling toward you produce -1 offset
 	// haha .. scroll fast and it will still produce an offset of +- 1 
 	// 	   Scroll it super fast and voila.. you got +- 2 offset
@@ -104,7 +82,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	assert(ptr != NULL);
 	// Lol .. scale got negative once 
 	// assert(ptr->frame_ptr->scale_factor > 0.005f);
-	fprintf(stderr, "\nScale sensitivity is : %lf.", ptr->frame_ptr->scale_factor);
+#ifdef EN_LOG
+	fprintf(stderr, "\nY-offset produced is -> %lf.",yoffset);
+	fprintf(stderr, "\nCurrent scale factor is -> %lf.", ptr->frame_ptr->scale_factor);
+#endif
 	if ( (yoffset < -0.999f) && (ptr->frame_ptr->scale_factor <= 0.005f))
 	{
 		// Do nothing .. Hahahaha
@@ -127,12 +108,12 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 
 
 
-int main()
+Plotter* createPlotter(int width, int hight, float scale)
 {
 	if (!glfwInit())
 	{
 		fprintf(stderr, "Failed to load GLFW API. Exiting ... \n");
-		return -1;
+		return NULL;
 	}
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -140,13 +121,14 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	GLFWwindow* window = glfwCreateWindow(1200, 800, "Graphics", NULL, NULL);
+	
 	if (!window)
 	{
 		fprintf(stderr, "Failed to create new window. Exiting .. . \n");
-		return -2;
+		return NULL;
 	}
 
-	// So context must be created before loading the glad
+	//// So context must be created before loading the glad
 	glfwMakeContextCurrent(window);
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetFramebufferSizeCallback(window, frame_change_callback);
@@ -155,112 +137,42 @@ int main()
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		fprintf(stderr, "Failed to load Glad Loader. Exiting ...");
-		return -3;
+		return NULL;
 	}
 
-	// Let's use modern opengl 
-	Renderer render_engine;
-	frameBuffer frame_buffer;
+	//// Allocate plotter on the heap 
+	Plotter* plotter = malloc(sizeof(Plotter));
 
-	// Set pointer for retrieving during callback function 
-	UserPtr ptr;
-	ptr.render_ptr = &render_engine;
-	ptr.frame_ptr = &frame_buffer;
-	glfwSetWindowUserPointer(window, &ptr);
+	////// Let's use modern opengl 
+	Renderer* render_engine = malloc(sizeof(Renderer));
 
-	initialize_renderer(&render_engine, &frame_buffer, 1200, 800);
+	frameBuffer* frame_buffer = malloc(sizeof(frameBuffer));
 
-	DDA_line(&frame_buffer, 1, 0, 7, 4);
-	
-	// sine_x(&frame_buffer, 0, 180);
-	update_plot(&render_engine, &frame_buffer);
+	////// Set pointer for retrieving during callback function 
+	UserPtr* ptr = malloc(sizeof(UserPtr));
+	ptr->render_ptr = render_engine;
+	ptr->frame_ptr = frame_buffer;
+	glfwSetWindowUserPointer(window, ptr);
 
-	mouse_state cursor_state;
-	cursor_state.is_was_pressed = false;
-	cursor_state.xpos = 0;
-	cursor_state.ypos = 0;
+	initialize_renderer(render_engine, frame_buffer, 1200, 800);	
+	////update_plot(render_engine, frame_buffer);
 
-	GLuint color_loc = glGetUniformLocation(render_engine.shader_program, "color_code");
-	clock_t now = clock(), then = clock();
-	while (!glfwWindowShouldClose(window))
-	{
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glUseProgram(render_engine.shader_program);
-		
-		glUniform1i(color_loc, 2);
-		glBindVertexArray(render_engine.plot.plot_VAO);
-		glDrawArrays(GL_TRIANGLES, 0, render_engine.vertices_count[2]/2);
-		
-		glUniform1i(color_loc, 1);
-		glBindVertexArray(render_engine.origin.origin_VAO);
-		glDrawArrays(GL_TRIANGLES, 0,render_engine.vertices_count[1]/2);
+	mouse_state* cursor_state = malloc(sizeof(mouse_state));
+	cursor_state->is_was_pressed = false;
+	cursor_state->xpos = 0;
+	cursor_state->ypos = 0;
 
-		
-		glUniform1i(color_loc, 0);
-		glBindVertexArray(render_engine.grid.grid_VAO);
-		glDrawArrays(GL_LINES, 0, render_engine.vertices_count[0]/2);
+	// Get all informatio back to the calling function
+	plotter->window = window;
+	plotter->frame_buffer = frame_buffer;
+	plotter->render_engine = render_engine;
+	plotter->mouse_state = cursor_state;
+	plotter->user_ptr = ptr;
 
-		now = clock();
-		//fprintf(stderr, "\nFPS is -> %f.", (double)(now - then) / CLOCKS_PER_SEC);
-		then = now;
-		handle_key_press(window, &render_engine, &frame_buffer);
-		mouse_panning(window, &cursor_state);
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
-	glfwDestroyWindow(window);
-	glfwTerminate();
-	return 0;
+	return plotter;
 }
 
 
-float absolute(float x)
-{
-	if (x >= 0)
-		return x;
-	return -x;
-}
-void DDA_line(frameBuffer* frame_buffer, int x1, int y1, int x2, int y2)
-{
-	// plot line from (x1,y1) to (x2,y2) using DDA_line drawing algorithm
-	float dx = x2 - x1;
-	float dy = y2 - y1;
-
-	int step;
-	if (absolute(dx) > absolute(dy))
-		step = absolute(dx);
-	else
-		step = absolute(dy);
-
-	float x = x1, y = y1;
-	dx = (float)dx / step;
-	dy = (float)dy / step;
-
-	for (int i = 0; i <= step; ++i)
-	{
-		setPixel(frame_buffer, (Point) { (int)(x + 0.5f), (int)(y + 0.5f) });
-		x += dx;
-		y += dy;
-		//printf("%f %f\n", x, y);
-	}
-	setPixel(frame_buffer, (Point) { -8, 0 });
-}
-
-void sine_x(frameBuffer* frame_buffer, float x, float y1)
-{
-	// Use small increment .. sample at 1 pixel distance 
-	// if we assume x and y as initial and final degree we can plot the graph centred at origin as
-
-
-	float y;
-	// It doesn't sample y correctly. Need some modficiation though.
-	for (int i = x; i <= y1; i++)
-	{
-		y = sin(i * 3.141592f / 180);
-		setPixel(frame_buffer, (Point) { i, (int)(y * 90 + 0.5) });
-	}
-}
 
 void mouse_panning(GLFWwindow* window, mouse_state* cursor)
 {
@@ -298,7 +210,7 @@ void mouse_panning(GLFWwindow* window, mouse_state* cursor)
 
 	// Ok .. to normalize this we need the information about current context ... but we don't have that one..
 	// Let's hardcode it
-	// Passing around might be a good idea but let's use glfw's functio now
+	// Passing around might be a good idea but let's use glfw's function for now
 
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
@@ -316,4 +228,69 @@ void mouse_panning(GLFWwindow* window, mouse_state* cursor)
 	// Forgot to update the cursor_position 
 	cursor->xpos = x_pos;
 	cursor->ypos = y_pos;
+}
+
+void plot(Plotter* plotter)
+{
+	Renderer* render_engine = plotter->render_engine;
+	GLFWwindow* window = plotter->window;
+	frameBuffer* frame_buffer = plotter->frame_buffer;
+	mouse_state* cursor_state = plotter->mouse_state;
+
+	GLuint color_loc = glGetUniformLocation(render_engine->shader_program, "color_code");
+
+	while (!glfwWindowShouldClose(window))
+	{
+
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		// fprintf(stderr,"\nIt is : %d.",render_engine->shader_program);
+		glUseProgram(render_engine->shader_program);
+
+		if (render_engine->render_type != RENDER_NO_PIXELS)
+		{
+			glUniform1i(color_loc, 2);
+			glBindVertexArray(render_engine->plot.plot_VAO);
+			glDrawArrays(GL_TRIANGLES, 0, render_engine->vertices_count[2] / 2);
+		}
+
+		if ((render_engine->render_type != RENDER_NO_ORIGIN) && (render_engine->render_type != RENDER_NO_GRIDS_AND_ORIGINS))
+		{
+				glUniform1i(color_loc, 1);	
+				glBindVertexArray(render_engine->origin.origin_VAO);
+				glDrawArrays(GL_TRIANGLES, 0, render_engine->vertices_count[1] / 2);
+		}
+
+		if ((render_engine->render_type != RENDER_NO_GRIDS) && (render_engine->render_type != RENDER_NO_GRIDS_AND_ORIGINS))
+		{
+			glUniform1i(color_loc, 0);
+			glBindVertexArray(render_engine->grid.grid_VAO);
+			glDrawArrays(GL_LINES, 0, render_engine->vertices_count[0] / 2);
+		}
+		handle_key_press(window, render_engine, frame_buffer);
+		mouse_panning(window, cursor_state);
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+}
+
+void destroyPlotter(Plotter* plotter)
+{
+	free(plotter->render_engine);
+	free(plotter->frame_buffer);
+	free(plotter->user_ptr);
+	free(plotter->mouse_state);
+	glfwDestroyWindow(plotter->window);
+	glfwTerminate();
+}
+
+void plotPixel(Plotter* plot_device, int x, int y)
+{
+	// I think I should add a function updatePixel to call update_plot when required
+	setPixel(plot_device->frame_buffer, (Point) { x, y });
+}
+
+void updatePixel(Plotter* plot_device)
+{
+	update_plot(plot_device->render_engine, plot_device->frame_buffer);
 }
