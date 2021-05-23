@@ -24,9 +24,18 @@
     <ClCompile Include="src\renderer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\GraphicsAPI.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="includes\renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\GraphicsAPI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\abstract.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -20,10 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad\src\glad.c" />
+    <ClCompile Include="src\GraphicsAPI.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\renderer.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="includes\abstract.h" />
+    <ClInclude Include="includes\GraphicsAPI.h" />
     <ClInclude Include="includes\renderer.h" />
   </ItemGroup>
   <ItemGroup>
