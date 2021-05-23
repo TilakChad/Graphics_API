@@ -1,9 +1,9 @@
 #ifndef GRAPHICS_API_H
 #define GRAPHICS_API_H
 
-#include "../includes/renderer.h"
+// I am learning again and again that glad should be included before GLFW
+#include "abstract.h"
 #include <GLFW/glfw3.h>
-
 
 // GLFW API provide a function with which we can set a single pointer and retrieve it wherever we desire
 // But we may need to pass more pointers sometimes.
@@ -34,6 +34,7 @@ typedef struct Plotter
 } Plotter;
 
 // Leave scale to zero for default value 
+// Only these functions will now be provided. Others will be abstracted due to abstract.h
 Plotter* createPlotter(int width, int height, float scale);
 void plot(Plotter*);
 void destroyPlotter(Plotter*);
