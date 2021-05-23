@@ -244,6 +244,7 @@ void DDA_line(frameBuffer* frame_buffer, int x1, int y1, int x2, int y2)
 		y += dy;
 		//printf("%f %f\n", x, y);
 	}
+	setPixel(frame_buffer, (Point) { -8, 0 });
 }
 
 void sine_x(frameBuffer* frame_buffer, float x, float y1)
@@ -297,8 +298,14 @@ void mouse_panning(GLFWwindow* window, mouse_state* cursor)
 
 	// Ok .. to normalize this we need the information about current context ... but we don't have that one..
 	// Let's hardcode it
-	float dx = delta_xpos / 2400;
-	float dy = delta_ypos / 1600;
+	// Passing around might be a good idea but let's use glfw's functio now
+
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+	// convert the obtained difference into ndc 
+
+	float dx = 2 * delta_xpos / (width);
+	float dy = 2 * delta_ypos / (height);
 
 	// Maybe I should minimize use of userpointer . Don't know the performance penalty yet
 	UserPtr* ptr = (UserPtr*)glfwGetWindowUserPointer(window);
