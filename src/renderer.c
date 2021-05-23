@@ -6,14 +6,15 @@
 #include "../includes/renderer.h"
 
 static void origin_border(Renderer*, frameBuffer*);
+static void update_graph(Renderer* render_engine, frameBuffer* frame_buffer);
+void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer);
+
+void update_frame(Renderer* render_engine, frameBuffer* frame_buffer);
+
 static void calculate_coordinate(float origin_x_or_y, float scale, float* left_or_bottom, float* right_or_top, int* first_count, int* second_count);
-static void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspect_ratio);
-
 static int allocate_more(frameBuffer* frame_buffer);
-void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer, float aspect_ratio);
-
 // Hehe.. can't simply pass the plotted_points struct cause it has already been declared anonymously 
-static bool contains(frameBuffer* frame_buffer);
+static bool contains(frameBuffer* frame_buffer,Point p);
 
 int load_shader_from_file(shader* shaders, const char* vertex_shader_path, const char* fragment_shader_path)
 {
@@ -72,65 +73,6 @@ int load_shader_from_file(shader* shaders, const char* vertex_shader_path, const
 	return 0;
 }
 
-int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int width, int height)
-{
-	shader render_shader;
-	int err = load_shader_from_file(&render_shader, "./src/shaders/vertex_shader.vs", "./src/shaders/fragment_shader.fs");
-	if (err == -1)
-	{
-		fprintf(stderr, "Failed to load shaders.");
-		return -1;
-	}
-	// Attach the required shaders
-	render_engine->shader_program = glCreateProgram();
-	glAttachShader(render_engine->shader_program, render_shader.fragment_shader);
-	glAttachShader(render_engine->shader_program, render_shader.vertex_shader);
-
-	glLinkProgram(render_engine->shader_program);
-
-	int success = 0;
-	glGetProgramiv(render_engine->shader_program, GL_LINK_STATUS, &success);
-	if (!success)
-	{
-		char infoLog[512];
-		glGetProgramInfoLog(render_engine->shader_program, 512, NULL, infoLog);
-		fprintf(stderr, "\nFailed to link shader program. -> %s. Exiting", infoLog);
-		return -1;
-	}
-	else
-		fprintf(stderr, "\nPassed");
-	float aspect_ratio = (float)width / height;
-	// Time to fill in the data 
-	// I think these need to be determined dynamically too 
-	// So let's start with a scale factor of 0.02f
-
-	frame_buffer->scale_factor = 0.1f;
-	frame_buffer->origin_x = -0.5f;
-	frame_buffer->origin_y = -0.5f;
-
-	for (int i = 0; i < 3; ++i) 
-		render_engine->vertices_count[i] = 0;
-
-	// Origin layout 
-	update_graph(render_engine, frame_buffer, aspect_ratio);
-	origin_border(render_engine, frame_buffer);
-
-	// Initialize the plotted pointy thingy
-	frame_buffer->plotted_points.size = 0;
-	frame_buffer->plotted_points.capacity = 0;
-
-	// Lets allocate a capacity for 1000 points for now 
-	frame_buffer->plotted_points.points = malloc(sizeof(Point) * 1000);
-	frame_buffer->plotted_points.capacity = 1000;
-
-	// Now update the points that need to be plotted and set by the user ...
-	// Initialize the plot detail properly
-	render_engine->plot.contain_VBO = false;
-
-	update_plot(render_engine, frame_buffer, aspect_ratio);
-	return 0;
-}
-
 void compile_and_log_shaders(shader* shaders, int shader_type)
 {
 	char logInfo[512];
@@ -165,9 +107,73 @@ void compile_and_log_shaders(shader* shaders, int shader_type)
 		fprintf(stderr, "\nFragment shader compilation passed.");
 }
 
+int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int width, int height)
+{
+	shader render_shader;
+	int err = load_shader_from_file(&render_shader, "./src/shaders/vertex_shader.vs", "./src/shaders/fragment_shader.fs");
+	if (err == -1)
+	{
+		fprintf(stderr, "Failed to load shaders.");
+		return -1;
+	}
+	// Attach the required shaders
+	render_engine->shader_program = glCreateProgram();
+	glAttachShader(render_engine->shader_program, render_shader.fragment_shader);
+	glAttachShader(render_engine->shader_program, render_shader.vertex_shader);
+
+	glLinkProgram(render_engine->shader_program);
+
+	int success = 0;
+	glGetProgramiv(render_engine->shader_program, GL_LINK_STATUS, &success);
+	if (!success)
+	{
+		char infoLog[512];
+		glGetProgramInfoLog(render_engine->shader_program, 512, NULL, infoLog);
+		fprintf(stderr, "\nFailed to link shader program. -> %s. Exiting", infoLog);
+		return -1;
+	}
+	else
+		fprintf(stderr, "\nPassed");
+	
+	float aspect_ratio = (float)width / height;
+	frame_buffer->aspect_ratio = aspect_ratio;
+	// Time to fill in the data 
+	// I think these need to be determined dynamically too 
+	// So let's start with a scale factor of 0.02f
+
+	frame_buffer->scale_factor = 0.001f;
+	frame_buffer->origin_x = 0.0f;
+	frame_buffer->origin_y = 0.0f;
+
+	for (int i = 0; i < 3; ++i) 
+		render_engine->vertices_count[i] = 0;
+
+	// Origin layout 
+	update_graph(render_engine, frame_buffer);
+	origin_border(render_engine, frame_buffer);
+
+	// Initialize the plotted pointy thingy
+	frame_buffer->plotted_points.size = 0;
+	frame_buffer->plotted_points.capacity = 0;
+
+	// Lets allocate a capacity for 1000 points for now 
+	frame_buffer->plotted_points.points = malloc(sizeof(Point) * 1000);
+	frame_buffer->plotted_points.capacity = 1000;
+
+	// Now update the points that need to be plotted and set by the user ...
+	// Initialize the plot detail properly
+	render_engine->plot.contain_VBO = false;
+	render_engine->grid.contain_VBO = false;
+	render_engine->origin.contain_VBO = false;
+
+	update_plot(render_engine, frame_buffer);
+	return 0;
+}
+
+
 void origin_border(Renderer* render_engine, frameBuffer* frame_buffer)
 {
-	float aspect_ratio = 1200.0f / 800;
+	float aspect_ratio = frame_buffer->aspect_ratio;
 	float x = frame_buffer->origin_x;
 	float y = frame_buffer->origin_y;
 	float thick_x = frame_buffer->scale_factor / (25*aspect_ratio);
@@ -180,14 +186,23 @@ void origin_border(Renderer* render_engine, frameBuffer* frame_buffer)
 			1.0f, y + thick_y, 1.0f, y - thick_y, -1.0f, y + thick_y,
 			1.0f, y - thick_y, -1.0f, y + thick_y, -1.0f, y - thick_y
 	};
-	glGenVertexArrays(1, &render_engine->scr_vertex_array);
-	glBindVertexArray(render_engine->scr_vertex_array);
-	GLuint VBO;
-	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+	if (render_engine->origin.contain_VBO)
+	{
+		glDeleteVertexArrays(1,&render_engine->origin.origin_VAO);
+		glDeleteBuffers(1,&render_engine->origin.origin_VBO);
+	}
+
+	render_engine->origin.contain_VBO = true;
+
+	glGenVertexArrays(1, &render_engine->origin.origin_VAO);
+	glBindVertexArray(render_engine->origin.origin_VAO);
+
+	glGenBuffers(1, &render_engine->origin.origin_VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, render_engine->origin.origin_VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
 
-	render_engine->vertices_count[1] = 12;
+	render_engine->vertices_count[1] = 24;
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
 	glBindVertexArray(0);
@@ -244,8 +259,9 @@ void calculate_coordinate(float origin, float scale, float* left, float* right, 
 	*second_coord = right_coord;
 }
 
-void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspect_ratio)
+void update_graph(Renderer* render_engine, frameBuffer* frame_buffer)
 {
+	float aspect_ratio = frame_buffer->aspect_ratio;
 	// Draw grid lines .. Nothing more now 
 // It should have suppport for panning
 // It should be scalable
@@ -257,8 +273,6 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 // Lets defer the allocation of memory after all vertices are covered. It shouldn't be exact. 
 	// float* vertices = malloc(sizeof(float) * ((1.0f / 0.1f + 0.5) * 2 + 1) * 4 * 4 * 2);
 	int indices = 0;
-
-
 	// Start with origin and start calculating the index at which line will be visible in the frame buffer
 	// if origin hasn't been shifted and is within (-1,-1) x (1,1), origin is within the screen
 	// else origin is out of the screen and we should calculate the value of x and y which will start to be seen in the screen
@@ -275,8 +289,6 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	float y_top = 0, y_bottom = 0;
 	int y_top_count = 0;
 	int y_bottom_count = 0;
-	frame_buffer->origin_x = 0.0f;
-	frame_buffer->scale_factor = 0.25f;
 
 	calculate_coordinate(frame_buffer->origin_x, frame_buffer->scale_factor / aspect_ratio, &x_left, &x_right, &x_left_count, &x_right_count);
 
@@ -293,41 +305,50 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	// and render the pixel once they are within the visible viewport
 
 	indices = 0;
-	int count_lines = (x_right - x_left) / (frame_buffer->scale_factor / aspect_ratio) + 0.5 + 1;
-	count_lines += (y_top - y_bottom) / frame_buffer->scale_factor + 0.5 + 1;
+	int count_lines = ceilf((x_right - x_left) / (frame_buffer->scale_factor / aspect_ratio)) + 1 ; // May overflow + 100 for caution .. haha funny way
+	count_lines += ceilf((y_top - y_bottom) / frame_buffer->scale_factor) + 1 ; // Don't know when will this overflow due to floating points
 
 	// Allocate enough memory for vertices 
 	float* vertices = malloc(sizeof(float) * count_lines * 4 * 2);
-	for (float i = x_left; i <= x_right + 0.0001; i += frame_buffer->scale_factor / aspect_ratio)
+	for (float x = x_left; x-x_right < 0.00001f ; x += frame_buffer->scale_factor / aspect_ratio)
 	{
-		vertices[indices++] = i;
-		vertices[indices++] = -1.0f;
-		vertices[indices++] = i;
-		vertices[indices++] = 1.0f;
+			vertices[indices++] = x;
+			vertices[indices++] = -1.0f;
+			vertices[indices++] = x;
+			vertices[indices++] = 1.0f;
 	}
 
-	for (float y = y_bottom; y <= y_top + 0.0001f; y += frame_buffer->scale_factor)
+	int i = 0;
+	for (float y = y_bottom; y-y_top < 0.00001f ; y += frame_buffer->scale_factor)
 	{
-		vertices[indices++] = -1.0f;
-		vertices[indices++] = y;
-		vertices[indices++] = 1.0f;
-		vertices[indices++] = y;
+			vertices[indices++] = -1.0f;
+			vertices[indices++] = y;
+			vertices[indices++] = 1.0f;
+			vertices[indices++] = y;
 	}
-
 	printf("\nTotal indices were : %d and total line counts were %d.", indices, count_lines);
-	// Create a vertex array object
-	glGenVertexArrays(1, &render_engine->origin_vertex_array);
-	glBindVertexArray(render_engine->origin_vertex_array);
 
-	GLuint VBO;
-	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	// Create a vertex array object
+	// Check if the buffer has already been allocated
+
+	if (render_engine->grid.contain_VBO)
+	{
+		glDeleteVertexArrays(1, &render_engine->grid.grid_VAO);
+		glDeleteBuffers(1, &render_engine->grid.grid_VBO);
+	}
+	// Mark it for further deletion
+	render_engine->grid.contain_VBO = true;
+	glGenVertexArrays(1, &render_engine->grid.grid_VAO);
+	glBindVertexArray(render_engine->grid.grid_VAO);
+
+	glGenBuffers(1, &render_engine->grid.grid_VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, render_engine->grid.grid_VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (count_lines * 4) * 2, vertices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
 	glBindVertexArray(0);
-	render_engine->vertices_count[0] = count_lines * 4;
+	render_engine->vertices_count[0] = indices;
 
 	// Completely forgot to update the information about current plotting range to frame_buffer
 	frame_buffer->plot_info.bottom = y_bottom;
@@ -339,10 +360,16 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer, float aspe
 	frame_buffer->plot_info.right_coord = x_right_count;
 	frame_buffer->plot_info.bottom_coord = y_bottom_count;
 	frame_buffer->plot_info.top_coord = y_top_count;
+
+	printf("\n\nY_bottom and Y-top are :-> %d %d.\n", y_bottom_count, y_top_count);
+
+	// Freed memory
+	free(vertices);
 }
 
-void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspect_ratio)
+void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 {
+	float aspect_ratio = frame_buffer->aspect_ratio;
 	if (render_engine->plot.contain_VBO)
 	{
 		glDeleteBuffers(1, &render_engine->plot.plot_VBO);
@@ -403,7 +430,7 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspec
 	// Again might need to do a double pass to allocate points that are within the visible region
 
 	int visible_pixels = 0;
-	for (int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	for (unsigned int i = 0; i < frame_buffer->plotted_points.size; ++i)
 	{
 		if (!
 			((points[i].x < frame_buffer->plot_info.left_coord - 1) ||
@@ -417,7 +444,7 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspec
 	// Allocate the memory accordingly ... Don't waste more memory 
 	float* pixel_vertices = malloc(sizeof(float) * visible_pixels * 6 * 2);
 
-	for (int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	for (unsigned int i = 0; i < frame_buffer->plotted_points.size; ++i)
 	{
 		// Looks ugly, righ? 
 		// Go ahead and use the De-Morgans law on the below boolean expression
@@ -455,6 +482,14 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer, float aspec
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	render_engine->vertices_count[2] = indices;
 	fprintf(stderr, "\n\nValue of the indices are : %d and total visible pixels are %d.", indices, visible_pixels);
+	free(pixel_vertices);
+}
+
+void update_frame(Renderer* render_engine, frameBuffer* frame_buffer)
+{
+	origin_border(render_engine, frame_buffer);
+	update_graph(render_engine, frame_buffer);
+	update_plot(render_engine, frame_buffer);
 }
 
 void setPixel(frameBuffer* frame_buffer, Point p)
@@ -516,7 +551,7 @@ bool contains(frameBuffer* frame_buffer, Point p)
 {
 	// Use naive linear search
 	// But this should do for now ..  A little optimized 
-	for (int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	for (unsigned int i = 0; i < frame_buffer->plotted_points.size; ++i)
 	{
 		// Depending upon the probability, x-axis would have more grid than y-axis.. so x-axis would have less chance of collision
 		// So let's check for x component equality first
