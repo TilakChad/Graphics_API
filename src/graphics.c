@@ -8,7 +8,7 @@
 
 
 // It will take the current cursor position and move the frame if dragged
-void mouse_panning(GLFWwindow* window, mouse_state* mouse); // will get other information from userPoiner 
+void mouse_panning(GLFWwindow* window, mouseState* cursor); // will get other information from userPoiner 
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -31,7 +31,7 @@ void frame_change_callback(GLFWwindow* window, int width, int height)
 // Suppose, size of the window change, then the number of lines or size of pixel that appear on the screen change.
 // In order to accomodate for that, we need to re initialize all the rendering 
 
-void handle_key_press(GLFWwindow* window, Renderer* render_engine, frameBuffer* frame_buffer)
+void handle_key_press(GLFWwindow* window, Renderer* render_engine, viewInfo* frame_buffer)
 {
 	bool should_update = false;
 	float move_scale = 0.005f;;
@@ -146,7 +146,7 @@ Plotter* createPlotter(int width, int hight, float scale)
 	////// Let's use modern opengl 
 	Renderer* render_engine = malloc(sizeof(Renderer));
 
-	frameBuffer* frame_buffer = malloc(sizeof(frameBuffer));
+	viewInfo* frame_buffer = malloc(sizeof(viewInfo));
 
 	////// Set pointer for retrieving during callback function 
 	UserPtr* ptr = malloc(sizeof(UserPtr));
@@ -157,7 +157,7 @@ Plotter* createPlotter(int width, int hight, float scale)
 	initialize_renderer(render_engine, frame_buffer, 1200, 800);	
 	////update_plot(render_engine, frame_buffer);
 
-	mouse_state* cursor_state = malloc(sizeof(mouse_state));
+	mouseState* cursor_state = malloc(sizeof(mouseState));
 	cursor_state->is_was_pressed = false;
 	cursor_state->xpos = 0;
 	cursor_state->ypos = 0;
@@ -166,7 +166,7 @@ Plotter* createPlotter(int width, int hight, float scale)
 	plotter->window = window;
 	plotter->frame_buffer = frame_buffer;
 	plotter->render_engine = render_engine;
-	plotter->mouse_state = cursor_state;
+	plotter->cursor_state = cursor_state;
 	plotter->user_ptr = ptr;
 
 	return plotter;
@@ -174,7 +174,7 @@ Plotter* createPlotter(int width, int hight, float scale)
 
 
 
-void mouse_panning(GLFWwindow* window, mouse_state* cursor)
+void mouse_panning(GLFWwindow* window, mouseState* cursor)
 {
 	if (!cursor->is_was_pressed)
 	{
@@ -234,8 +234,8 @@ void plot(Plotter* plotter)
 {
 	Renderer* render_engine = plotter->render_engine;
 	GLFWwindow* window = plotter->window;
-	frameBuffer* frame_buffer = plotter->frame_buffer;
-	mouse_state* cursor_state = plotter->mouse_state;
+	viewInfo* frame_buffer = plotter->frame_buffer;
+	mouseState* cursor_state = plotter->cursor_state;
 
 	GLuint color_loc = glGetUniformLocation(render_engine->shader_program, "color_code");
 
@@ -279,9 +279,9 @@ void destroyPlotter(Plotter* plotter)
 	free(plotter->render_engine);
 	free(plotter->frame_buffer);
 	free(plotter->user_ptr);
-	free(plotter->mouse_state);
+	free(plotter->cursor_state);
 	glfwDestroyWindow(plotter->window);
-	glfwTerminate();
+	//glfwTerminate();
 }
 
 void plotPixel(Plotter* plot_device, int x, int y)
@@ -292,5 +292,6 @@ void plotPixel(Plotter* plot_device, int x, int y)
 
 void updatePixel(Plotter* plot_device)
 {
+	glfwMakeContextCurrent(plot_device->window);
 	update_plot(plot_device->render_engine, plot_device->frame_buffer);
 }

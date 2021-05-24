@@ -48,7 +48,7 @@ typedef struct Renderer
 	} render_type;
 } Renderer;
 
-typedef struct frameBuffer
+typedef struct viewInfo
 {
 	GLfloat origin_x;
 	GLfloat origin_y;
@@ -68,6 +68,6 @@ typedef struct frameBuffer
 		float left, right, top, bottom;
 		int left_coord, right_coord, top_coord, bottom_coord;
 	}plot_info;
-}frameBuffer;
+}viewInfo;
 
 #endif

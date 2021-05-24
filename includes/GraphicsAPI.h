@@ -13,22 +13,22 @@
 
 typedef struct UserPtr {
 	Renderer* render_ptr;
-	frameBuffer* frame_ptr;
+	viewInfo* frame_ptr;
 } UserPtr;
 
 
-typedef struct mouse_state
+typedef struct mouseState
 {
 	double xpos, ypos;
 	bool is_was_pressed; // :D 
-} mouse_state;
+} mouseState;
 
 typedef struct Plotter
 {
 	Renderer* render_engine;
-	frameBuffer* frame_buffer;
+	viewInfo* frame_buffer;
 	UserPtr* user_ptr;
-	mouse_state* mouse_state;
+	mouseState* cursor_state;
 	GLFWwindow* window;
 	// That should be enough
 } Plotter;

@@ -1,7 +1,7 @@
 // We need to create an abstraction for the given graphics package 
 #include "../includes/GraphicsAPI.h"
 
-void DDA_line(frameBuffer* frame_buffer, int x1, int y1, int x2, int y2);
+void DDA_line(Plotter* plot_device, int x1, int y1, int x2, int y2);
 float absolute(float x);
 
 float absolute(float x)
@@ -36,18 +36,19 @@ void DDA_line(Plotter* plot_device, int x1, int y1, int x2, int y2)
 		// printf("%f %f\n", x, y);
 	}
 }
-//
+
 int main()
 {
 	Plotter* plot_device = createPlotter(1200, 800, 0.0);
 
-	// DDA_line(plot_device, 1, 0, 7, 4);
+	Plotter* plot_device_b = createPlotter(1200, 800, 0, 0);
+	 DDA_line(plot_device, 1, 0, 7, 4);
 
 	for (int i = -3; i < 5; ++i)
 	{
 		for (int j = -3; j < 5; ++j)
 		{
-			plotPixel(plot_device, i, j);
+			plotPixel(plot_device_b, i, j);
 		}
 	}
 
@@ -56,5 +57,9 @@ int main()
 	// Other operations like moving, panning works as intended
 	plot(plot_device);
 	destroyPlotter(plot_device);
+
+	updatePixel(plot_device_b);
+	plot(plot_device_b);
+	destroyPlotter(plot_device_b);
 	return 0;
 }

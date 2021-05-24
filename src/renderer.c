@@ -5,16 +5,16 @@
 #include <math.h>
 #include "../includes/renderer.h"
 
-static void origin_border(Renderer*, frameBuffer*);
-static void update_graph(Renderer* render_engine, frameBuffer* frame_buffer);
-void update_plot(Renderer* render_engine, frameBuffer* frrame_buffer);
+static void origin_border(Renderer*, viewInfo*);
+static void update_graph(Renderer* render_engine, viewInfo* frame_buffer);
+void update_plot(Renderer* render_engine, viewInfo* frrame_buffer);
 
-void update_frame(Renderer* render_engine, frameBuffer* frame_buffer);
+void update_frame(Renderer* render_engine, viewInfo* frame_buffer);
 
 static void calculate_coordinate(float origin_x_or_y, float scale, float* left_or_bottom, float* right_or_top, int* first_count, int* second_count);
-static int allocate_more(frameBuffer* frame_buffer);
+static int allocate_more(viewInfo* frame_buffer);
 // Hehe.. can't simply pass the plotted_points struct cause it has already been declared anonymously 
-static bool contains(frameBuffer* frame_buffer,Point p);
+static bool contains(viewInfo* frame_buffer,Point p);
 
 int load_shader_from_file(shader* shaders, const char* vertex_shader_path, const char* fragment_shader_path)
 {
@@ -107,7 +107,7 @@ void compile_and_log_shaders(shader* shaders, int shader_type)
 		fprintf(stderr, "\nFragment shader compilation passed.");
 }
 
-int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int width, int height)
+int initialize_renderer(Renderer* render_engine, viewInfo* frame_buffer, int width, int height)
 {
 	shader render_shader;
 	int err = load_shader_from_file(&render_shader, "./src/shaders/vertex_shader.vs", "./src/shaders/fragment_shader.fs");
@@ -172,7 +172,7 @@ int initialize_renderer(Renderer* render_engine, frameBuffer* frame_buffer, int 
 }
 
 
-void origin_border(Renderer* render_engine, frameBuffer* frame_buffer)
+void origin_border(Renderer* render_engine, viewInfo* frame_buffer)
 {
 	float aspect_ratio = frame_buffer->aspect_ratio;
 	float x = frame_buffer->origin_x;
@@ -260,7 +260,7 @@ void calculate_coordinate(float origin, float scale, float* left, float* right, 
 	*second_coord = right_coord;
 }
 
-void update_graph(Renderer* render_engine, frameBuffer* frame_buffer)
+void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
 {
 	float aspect_ratio = frame_buffer->aspect_ratio;
 	// Draw grid lines .. Nothing more now 
@@ -379,7 +379,7 @@ void update_graph(Renderer* render_engine, frameBuffer* frame_buffer)
 	free(vertices);
 }
 
-void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
+void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
 {
 	float aspect_ratio = frame_buffer->aspect_ratio;
 	if (render_engine->plot.contain_VBO)
@@ -503,14 +503,14 @@ void update_plot(Renderer* render_engine, frameBuffer* frame_buffer)
 	free(pixel_vertices);
 }
 
-void update_frame(Renderer* render_engine, frameBuffer* frame_buffer)
+void update_frame(Renderer* render_engine, viewInfo* frame_buffer)
 {
 	origin_border(render_engine, frame_buffer);
 	update_graph(render_engine, frame_buffer);
 	update_plot(render_engine, frame_buffer);
 }
 
-void setPixel(frameBuffer* frame_buffer, Point p)
+void setPixel(viewInfo* frame_buffer, Point p)
 {
 	// check if the point storage have enough allocated memory for further adding point
 	if (frame_buffer->plotted_points.size == frame_buffer->plotted_points.capacity)
@@ -536,12 +536,12 @@ void setPixel(frameBuffer* frame_buffer, Point p)
 	// Maybe someday, a single point which already contain will allocate 16 MB more memory for nothing :D :D 
 }
 
-void resetPixel(frameBuffer* frame_buffer, Point p)
+void resetPixel(viewInfo* frame_buffer, Point p)
 {
 	// Currently not implementing this for now 
 }
 
-int allocate_more(frameBuffer* frame_buffer)
+int allocate_more(viewInfo* frame_buffer)
 {
 	// Double the capacity of the previous storage
 	// Maintain a pointer to previous storage
@@ -565,7 +565,7 @@ int allocate_more(frameBuffer* frame_buffer)
 	return 0;
 }
 
-bool contains(frameBuffer* frame_buffer, Point p)
+bool contains(viewInfo* frame_buffer, Point p)
 {
 	// Use naive linear search
 	// But this should do for now ..  A little optimized 
