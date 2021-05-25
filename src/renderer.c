@@ -19,47 +19,39 @@ static bool contains(viewInfo* frame_buffer,Point p);
 int load_shader_from_file(shader* shaders, const char* vertex_shader_path, const char* fragment_shader_path)
 {
 	FILE* vs, * fs;
-	if (!(vs = fopen(vertex_shader_path, "r")))
+	if (!(vs = fopen(vertex_shader_path, "rb")))
 	{
 		fprintf(stderr, "\nFailed to open vertex shader %s.", vertex_shader_path);
 		return -1;
 	}
-	if (!(fs = fopen(fragment_shader_path, "r")))
+	if (!(fs = fopen(fragment_shader_path, "rb")))
 	{
 		fprintf(stderr, "\nFailed to open fragment shader %s.", fragment_shader_path);
 		return -1;
 	}
 
-	int count = 0;
-	while (fgetc(vs) != EOF)
-		count++;
-
-	char* vs_source = malloc(sizeof(char) * (count + 1));
+	fseek(vs, 0, SEEK_END);
+	long byte_size = ftell(vs);
 	fseek(vs, 0, SEEK_SET);
 
-	int index = 0;
-	char ch;
-	while ((ch = fgetc(vs)) != EOF)
-		vs_source[index++] = ch;
+	char* vs_source = malloc(sizeof(unsigned char) * (byte_size + 1));
+	int read_size = fread(vs_source, sizeof(unsigned char), byte_size, vs);
+	vs_source[byte_size] = '\0';
 
-	assert(index <= count);
-	printf("\n Index and count are : %d and %d.", index, count);
-	vs_source[index] = '\0';
-
+	// fprintf(stderr, "byte size and fread were %ld %d.", byte_size, read_size);
 	shaders->vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(shaders->vertex_shader, 1, &vs_source, NULL);
 
 	// Similarly load the fragment shaders
-	count = 0;
-	while (fgetc(fs) != EOF) count++;
 
+	fseek(fs, 0, SEEK_END);
+	byte_size = ftell(fs);
 	fseek(fs, 0, SEEK_SET);
-	char* fs_source = malloc(sizeof(char) * (count + 1));
-	index = 0;
-	while ((ch = fgetc(fs)) != EOF)
-		fs_source[index++] = ch;
-	assert(index <= count);
-	fs_source[index] = '\0';
+
+	char* fs_source = malloc(sizeof(char) * (byte_size + 1));
+	read_size = fread(fs_source, sizeof(unsigned char), byte_size, fs);
+	fs_source[byte_size] = '\0';
+	// fprintf(stderr, "byte size and fread were %ld %d.", byte_size, read_size);
 
 	shaders->fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(shaders->fragment_shader, 1, &fs_source, NULL);
