@@ -6,15 +6,15 @@
 #include "../includes/renderer.h"
 
 static void origin_border(Renderer*, viewInfo*);
-static void update_graph(Renderer* render_engine, viewInfo* frame_buffer);
+static void update_graph(Renderer* render_engine, viewInfo* frame_info);
 void update_plot(Renderer* render_engine, viewInfo* frrame_buffer);
 
-void update_frame(Renderer* render_engine, viewInfo* frame_buffer);
+void update_frame(Renderer* render_engine, viewInfo* frame_info);
 
 static void calculate_coordinate(float origin_x_or_y, float scale, float* left_or_bottom, float* right_or_top, int* first_count, int* second_count);
-static int allocate_more(viewInfo* frame_buffer);
+static int allocate_more(viewInfo* frame_info);
 // Hehe.. can't simply pass the plotted_points struct cause it has already been declared anonymously 
-static bool contains(viewInfo* frame_buffer,Point p);
+static bool contains(viewInfo* frame_info,Point p);
 
 int load_shader_from_file(shader* shaders, const char* vertex_shader_path, const char* fragment_shader_path)
 {
@@ -99,7 +99,7 @@ void compile_and_log_shaders(shader* shaders, int shader_type)
 		fprintf(stderr, "\nFragment shader compilation passed.");
 }
 
-int initialize_renderer(Renderer* render_engine, viewInfo* frame_buffer, int width, int height)
+int initialize_renderer(Renderer* render_engine, viewInfo* frame_info, int width, int height)
 {
 	shader render_shader;
 	int err = load_shader_from_file(&render_shader, "./src/shaders/vertex_shader.vs", "./src/shaders/fragment_shader.fs");
@@ -128,29 +128,29 @@ int initialize_renderer(Renderer* render_engine, viewInfo* frame_buffer, int wid
 		fprintf(stderr, "\nPassed");
 	
 	float aspect_ratio = (float)width / height;
-	frame_buffer->aspect_ratio = aspect_ratio;
+	frame_info->aspect_ratio = aspect_ratio;
 	// Time to fill in the data 
 	// I think these need to be determined dynamically too 
 	// So let's start with a scale factor of 0.02f
 
-	frame_buffer->scale_factor = 0.25f;
-	frame_buffer->origin_x = 0.0f;
-	frame_buffer->origin_y = 0.0f;
+	frame_info->scale_factor = 0.25f;
+	frame_info->origin_x = 0.0f;
+	frame_info->origin_y = 0.0f;
 
 	for (int i = 0; i < 3; ++i) 
 		render_engine->vertices_count[i] = 0;
 
 	// Origin layout 
-	update_graph(render_engine, frame_buffer);
-	origin_border(render_engine, frame_buffer);
+	update_graph(render_engine, frame_info);
+	origin_border(render_engine, frame_info);
 
 	// Initialize the plotted pointy thingy
-	frame_buffer->plotted_points.size = 0;
-	frame_buffer->plotted_points.capacity = 0;
+	frame_info->plotted_points.size = 0;
+	frame_info->plotted_points.capacity = 0;
 
 	// Lets allocate a capacity for 1000 points for now 
-	frame_buffer->plotted_points.points = malloc(sizeof(Point) * 1000);
-	frame_buffer->plotted_points.capacity = 1000;
+	frame_info->plotted_points.points = malloc(sizeof(Point) * 1000);
+	frame_info->plotted_points.capacity = 1000;
 
 	// Now update the points that need to be plotted and set by the user ...
 	// Initialize the plot detail properly
@@ -158,19 +158,19 @@ int initialize_renderer(Renderer* render_engine, viewInfo* frame_buffer, int wid
 	render_engine->grid.contain_VBO = false;
 	render_engine->origin.contain_VBO = false;
 
-	update_plot(render_engine, frame_buffer);
+	update_plot(render_engine, frame_info);
 	render_engine->render_type = RENDER_ALL;
 	return 0;
 }
 
 
-void origin_border(Renderer* render_engine, viewInfo* frame_buffer)
+void origin_border(Renderer* render_engine, viewInfo* frame_info)
 {
-	float aspect_ratio = frame_buffer->aspect_ratio;
-	float x = frame_buffer->origin_x;
-	float y = frame_buffer->origin_y;
-	float thick_x = frame_buffer->scale_factor / (25*aspect_ratio);
-	float thick_y = frame_buffer->scale_factor / 25;
+	float aspect_ratio = frame_info->aspect_ratio;
+	float x = frame_info->origin_x;
+	float y = frame_info->origin_y;
+	float thick_x = frame_info->scale_factor / (25*aspect_ratio);
+	float thick_y = frame_info->scale_factor / 25;
 	// Draw the quad around x-axis and y-axis
 	float quad_vertices[] = {
 			x + thick_x, 1.0f, x - thick_x, 1.0f, x - thick_x, -1.0f,
@@ -237,7 +237,7 @@ void calculate_coordinate(float origin, float scale, float* left, float* right, 
 	}
 	else
 	{
-		// Origin is within the frame_buffer .. just calculate the x_left and x_right
+		// Origin is within the frame_info .. just calculate the x_left and x_right
 		left_ndc = (origin + 1.0f) / scale;
 		left_coord = -floorf(left_ndc);
 		left_ndc = origin - scale * (-left_coord);
@@ -252,9 +252,9 @@ void calculate_coordinate(float origin, float scale, float* left, float* right, 
 	*second_coord = right_coord;
 }
 
-void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
+void update_graph(Renderer* render_engine, viewInfo* frame_info)
 {
-	float aspect_ratio = frame_buffer->aspect_ratio;
+	float aspect_ratio = frame_info->aspect_ratio;
 	// Draw grid lines .. Nothing more now 
 // It should have suppport for panning
 // It should be scalable
@@ -283,13 +283,13 @@ void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
 	int y_top_count = 0;
 	int y_bottom_count = 0;
 
-	calculate_coordinate(frame_buffer->origin_x, frame_buffer->scale_factor / aspect_ratio, &x_left, &x_right, &x_left_count, &x_right_count);
+	calculate_coordinate(frame_info->origin_x, frame_info->scale_factor / aspect_ratio, &x_left, &x_right, &x_left_count, &x_right_count);
 	// Do similiar for y-coordinate now 
 
-	calculate_coordinate(frame_buffer->origin_y, frame_buffer->scale_factor, &y_bottom, &y_top, &y_bottom_count, &y_top_count);
+	calculate_coordinate(frame_info->origin_y, frame_info->scale_factor, &y_bottom, &y_top, &y_bottom_count, &y_top_count);
 
 #ifdef EN_LOG
-	fprintf(stderr, "\nCurrent scale factor is -> %f.", frame_buffer->scale_factor);
+	fprintf(stderr, "\nCurrent scale factor is -> %f.", frame_info->scale_factor);
 	fprintf(stderr, "\nx_left and x_right determined are : %f %f.", x_left, x_right);
 	fprintf(stderr, "\ny_bottom and y_top determined are : %f %f.", y_bottom, y_top);
 #endif
@@ -299,12 +299,12 @@ void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
 	// and render the pixel once they are within the visible viewport
 
 	indices = 0;
-	int count_lines = ceilf((x_right - x_left) / (frame_buffer->scale_factor / aspect_ratio)) + 1 ; // May overflow + 100 for caution .. haha funny way
-	count_lines += ceilf((y_top - y_bottom) / frame_buffer->scale_factor) + 1 ; // Don't know when will this overflow due to floating points
+	int count_lines = ceilf((x_right - x_left) / (frame_info->scale_factor / aspect_ratio)) + 1 ; // May overflow + 100 for caution .. haha funny way
+	count_lines += ceilf((y_top - y_bottom) / frame_info->scale_factor) + 1 ; // Don't know when will this overflow due to floating points
 
 	// Allocate enough memory for vertices 
 	float* vertices = malloc(sizeof(float) * count_lines * 4 * 2);
-	for (float x = x_left; x-x_right < 0.00001f ; x += frame_buffer->scale_factor / aspect_ratio)
+	for (float x = x_left; x-x_right < 0.00001f ; x += frame_info->scale_factor / aspect_ratio)
 	{
 		// Don't try to increase indices beyond allocated memory
 		if (indices < count_lines * 4 * 2)
@@ -317,7 +317,7 @@ void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
 	}
 
 	int i = 0;
-	for (float y = y_bottom; y-y_top < 0.00001f ; y += frame_buffer->scale_factor)
+	for (float y = y_bottom; y-y_top < 0.00001f ; y += frame_info->scale_factor)
 	{
 		if (indices < count_lines * 4 * 2)
 		{
@@ -351,16 +351,16 @@ void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
 	glBindVertexArray(0);
 	render_engine->vertices_count[0] = indices;
 
-	// Completely forgot to update the information about current plotting range to frame_buffer
-	frame_buffer->plot_info.bottom = y_bottom;
-	frame_buffer->plot_info.top = y_top;
-	frame_buffer->plot_info.left = x_left;
-	frame_buffer->plot_info.right = x_right;
+	// Completely forgot to update the information about current plotting range to frame_info
+	frame_info->plot_info.bottom = y_bottom;
+	frame_info->plot_info.top = y_top;
+	frame_info->plot_info.left = x_left;
+	frame_info->plot_info.right = x_right;
 
-	frame_buffer->plot_info.left_coord = x_left_count;
-	frame_buffer->plot_info.right_coord = x_right_count;
-	frame_buffer->plot_info.bottom_coord = y_bottom_count;
-	frame_buffer->plot_info.top_coord = y_top_count;
+	frame_info->plot_info.left_coord = x_left_count;
+	frame_info->plot_info.right_coord = x_right_count;
+	frame_info->plot_info.bottom_coord = y_bottom_count;
+	frame_info->plot_info.top_coord = y_top_count;
 
 #ifdef EN_LOG
 	printf("\n\t\t\t Cartesian co-ordinates : \n");
@@ -371,9 +371,9 @@ void update_graph(Renderer* render_engine, viewInfo* frame_buffer)
 	free(vertices);
 }
 
-void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
+void update_plot(Renderer* render_engine, viewInfo* frame_info)
 {
-	float aspect_ratio = frame_buffer->aspect_ratio;
+	float aspect_ratio = frame_info->aspect_ratio;
 	if (render_engine->plot.contain_VBO)
 	{
 		glDeleteBuffers(1, &render_engine->plot.plot_VBO);
@@ -389,9 +389,9 @@ void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
 	glGenBuffers(1, &render_engine->plot.plot_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, render_engine->plot.plot_VBO);
 
-	float origin_x = frame_buffer->origin_x;
-	float origin_y = frame_buffer->origin_y;
-	float scale = frame_buffer->scale_factor;
+	float origin_x = frame_info->origin_x;
+	float origin_y = frame_info->origin_y;
+	float scale = frame_info->scale_factor;
 
 	//fprintf(stderr, "\nOrigin and scale factor are -> %f %f -> %f.",origin_x, origin_y, scale);
 
@@ -417,10 +417,10 @@ void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
 
 	// Let's not implement out-of-frame origin for now 
 
-	// float* pixel_vertices = malloc(sizeof(float) * 6 * 2 * frame_buffer->plotted_points.size);
+	// float* pixel_vertices = malloc(sizeof(float) * 6 * 2 * frame_info->plotted_points.size);
 
-	Point* points = frame_buffer->plotted_points.points;
-	//if (frame_buffer->plotted_points.size)
+	Point* points = frame_info->plotted_points.points;
+	//if (frame_info->plotted_points.size)
 	//	fprintf(stderr, "\nPoint to be plotted is %f %f.", points[0].x, points[0].y);
 	int indices = 0;
 
@@ -429,18 +429,18 @@ void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
 	// Various factors like panning, moving or scaling might change the co-ordinates that are currently visible in the area
 	// so analyze each point and plot it only if it is within the current visible scren
 
-	// fprintf(stderr, "\n\nValues are : %d %d and %d %d.", frame_buffer->plot_info.left_coord, frame_buffer->plot_info.right_coord, frame_buffer->plot_info.bottom_coord, frame_buffer->plot_info.top_coord);
+	// fprintf(stderr, "\n\nValues are : %d %d and %d %d.", frame_info->plot_info.left_coord, frame_info->plot_info.right_coord, frame_info->plot_info.bottom_coord, frame_info->plot_info.top_coord);
 
 	// Again might need to do a double pass to allocate points that are within the visible region
 
 	int visible_pixels = 0;
-	for (unsigned int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	for (unsigned int i = 0; i < frame_info->plotted_points.size; ++i)
 	{
 		if (!
-			((points[i].x < frame_buffer->plot_info.left_coord - 1) ||
-				(points[i].x > frame_buffer->plot_info.right_coord) ||
-				(points[i].y < frame_buffer->plot_info.bottom_coord - 1) ||
-				(points[i].y > frame_buffer->plot_info.top_coord)))
+			((points[i].x < frame_info->plot_info.left_coord - 1) ||
+				(points[i].x > frame_info->plot_info.right_coord) ||
+				(points[i].y < frame_info->plot_info.bottom_coord - 1) ||
+				(points[i].y > frame_info->plot_info.top_coord)))
 		{
 			visible_pixels++;
 		}
@@ -448,15 +448,15 @@ void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
 	// Allocate the memory accordingly ... Don't waste more memory 
 	float* pixel_vertices = malloc(sizeof(float) * visible_pixels * 6 * 2);
 
-	for (unsigned int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	for (unsigned int i = 0; i < frame_info->plotted_points.size; ++i)
 	{
 		// Looks ugly, righ? 
 		// Go ahead and use the De-Morgans law on the below boolean expression
 		if (!
-			((points[i].x < frame_buffer->plot_info.left_coord - 1) ||
-			(points[i].x > frame_buffer->plot_info.right_coord) ||
-			(points[i].y < frame_buffer->plot_info.bottom_coord - 1) ||
-			(points[i].y > frame_buffer->plot_info.top_coord)))
+			((points[i].x < frame_info->plot_info.left_coord - 1) ||
+			(points[i].x > frame_info->plot_info.right_coord) ||
+			(points[i].y < frame_info->plot_info.bottom_coord - 1) ||
+			(points[i].y > frame_info->plot_info.top_coord)))
 		{
 			if (indices < visible_pixels * 6 * 2)
 			{
@@ -490,24 +490,24 @@ void update_plot(Renderer* render_engine, viewInfo* frame_buffer)
 #ifdef EN_LOG
 	fprintf(stderr, "\nFrame info -> ");
 	fprintf(stderr, "\nValue of the indices are : %d.\nTotal visible pixels are %d.", indices, visible_pixels);
-	fprintf(stderr, "\nTotal illuminated pixels are : %u.", frame_buffer->plotted_points.size);
+	fprintf(stderr, "\nTotal illuminated pixels are : %u.", frame_info->plotted_points.size);
 #endif
 	free(pixel_vertices);
 }
 
-void update_frame(Renderer* render_engine, viewInfo* frame_buffer)
+void update_frame(Renderer* render_engine, viewInfo* frame_info)
 {
-	origin_border(render_engine, frame_buffer);
-	update_graph(render_engine, frame_buffer);
-	update_plot(render_engine, frame_buffer);
+	origin_border(render_engine, frame_info);
+	update_graph(render_engine, frame_info);
+	update_plot(render_engine, frame_info);
 }
 
-void setPixel(viewInfo* frame_buffer, Point p)
+void setPixel(viewInfo* frame_info, Point p)
 {
 	// check if the point storage have enough allocated memory for further adding point
-	if (frame_buffer->plotted_points.size == frame_buffer->plotted_points.capacity)
+	if (frame_info->plotted_points.size == frame_info->plotted_points.capacity)
 	{
-		int err_code = allocate_more(frame_buffer);
+		int err_code = allocate_more(frame_info);
 		if (err_code)
 		{
 			fprintf(stderr, "\nFailed to allocate more memory. Returning ..");
@@ -518,9 +518,9 @@ void setPixel(viewInfo* frame_buffer, Point p)
 	// Now check if the given point is already available
 	// Let's build a contain interface in case I decided to change the underlying data structure
 
-	if (!contains(frame_buffer, p))
+	if (!contains(frame_info, p))
 	{
-		frame_buffer->plotted_points.points[frame_buffer->plotted_points.size++] = p;
+		frame_info->plotted_points.points[frame_info->plotted_points.size++] = p;
 	}
 	
 	// If contains don't do anything 
@@ -528,47 +528,47 @@ void setPixel(viewInfo* frame_buffer, Point p)
 	// Maybe someday, a single point which already contain will allocate 16 MB more memory for nothing :D :D 
 }
 
-void resetPixel(viewInfo* frame_buffer, Point p)
+void resetPixel(viewInfo* frame_info, Point p)
 {
 	// Currently not implementing this for now 
 }
 
-int allocate_more(viewInfo* frame_buffer)
+int allocate_more(viewInfo* frame_info)
 {
 	// Double the capacity of the previous storage
 	// Maintain a pointer to previous storage
 
-	Point* previous = frame_buffer->plotted_points.points;
+	Point* previous = frame_info->plotted_points.points;
 
 	// Re allocate the current one
-	frame_buffer->plotted_points.points = malloc(sizeof(Point) * (frame_buffer->plotted_points.capacity * 2));
-	if (!frame_buffer->plotted_points.points)
+	frame_info->plotted_points.points = malloc(sizeof(Point) * (frame_info->plotted_points.capacity * 2));
+	if (!frame_info->plotted_points.points)
 	{
 		fprintf(stderr, "\nFailed to allocate new memory for points .. ");
 		return -1;
 	}
-	frame_buffer->plotted_points.capacity <<= 1;
+	frame_info->plotted_points.capacity <<= 1;
 
 	// Now copy the old data into the new one 
-	memcpy(frame_buffer->plotted_points.points, previous, sizeof(Point) * frame_buffer->plotted_points.size);
+	memcpy(frame_info->plotted_points.points, previous, sizeof(Point) * frame_info->plotted_points.size);
 
 	// Release the previously allocated memory
 	free(previous);
 	return 0;
 }
 
-bool contains(viewInfo* frame_buffer, Point p)
+bool contains(viewInfo* frame_info, Point p)
 {
 	// Use naive linear search
 	// But this should do for now ..  A little optimized 
-	for (unsigned int i = 0; i < frame_buffer->plotted_points.size; ++i)
+	for (unsigned int i = 0; i < frame_info->plotted_points.size; ++i)
 	{
 		// Depending upon the probability, x-axis would have more grid than y-axis.. so x-axis would have less chance of collision
 		// So let's check for x component equality first
-		if (frame_buffer->plotted_points.points[i].x == p.x)
+		if (frame_info->plotted_points.points[i].x == p.x)
 		{
 			// check for y component now
-			if (frame_buffer->plotted_points.points[i].y == p.y)
+			if (frame_info->plotted_points.points[i].y == p.y)
 				return true;
 		}
 	}

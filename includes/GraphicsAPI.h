@@ -11,12 +11,6 @@
 // Its the struct whose pointer we are going to retrieve in the callback function.
 
 
-typedef struct UserPtr {
-	Renderer* render_ptr;
-	viewInfo* frame_ptr;
-} UserPtr;
-
-
 typedef struct mouseState
 {
 	double xpos, ypos;
@@ -26,8 +20,7 @@ typedef struct mouseState
 typedef struct Plotter
 {
 	Renderer* render_engine;
-	viewInfo* frame_buffer;
-	UserPtr* user_ptr;
+	viewInfo* frame_info;
 	mouseState* cursor_state;
 	GLFWwindow* window;
 	// That should be enough
