@@ -21,17 +21,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 void frame_change_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
-	UserPtr* ptr = (UserPtr*)glfwGetWindowUserPointer(window);
+	Plotter* ptr = (Plotter*)glfwGetWindowUserPointer(window);
 	assert(ptr != NULL);
-	ptr->frame_ptr->aspect_ratio = (float)width / height;
-	update_frame(ptr->render_ptr, ptr->frame_ptr);
+	ptr->frame_info->aspect_ratio = (float)width / height;
+	update_frame(ptr->render_engine, ptr->frame_info);
 }
 
 // Callback function have no way of passing arguments directly to them. 
 // Suppose, size of the window change, then the number of lines or size of pixel that appear on the screen change.
 // In order to accomodate for that, we need to re initialize all the rendering 
 
-void handle_key_press(GLFWwindow* window, Renderer* render_engine, viewInfo* frame_buffer)
+void handle_key_press(GLFWwindow* window, Renderer* render_engine, viewInfo* frame_info)
 {
 	bool should_update = false;
 	float move_scale = 0.005f;;
@@ -40,30 +40,30 @@ void handle_key_press(GLFWwindow* window, Renderer* render_engine, viewInfo* fra
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
 	{
 		// Since our aspect ratio assumes y-axis to be the standard, we gotta divide x axis by aspect ratio 
-		frame_buffer->origin_x += move_scale/frame_buffer->aspect_ratio ;
+		frame_info->origin_x += move_scale/frame_info->aspect_ratio ;
 		should_update = true;
 	}
 
 	else if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 	{
 		should_update = true;
-		frame_buffer->origin_x -= move_scale / frame_buffer->aspect_ratio;
+		frame_info->origin_x -= move_scale / frame_info->aspect_ratio;
 	}
 
 	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
 	{
-		frame_buffer->origin_y -= move_scale;
+		frame_info->origin_y -= move_scale;
 		should_update = true;
 	}
 
 	else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 	{
-		frame_buffer->origin_y += move_scale;
+		frame_info->origin_y += move_scale;
 		should_update = true;
 	}
 
 	if(should_update)
-		update_frame(render_engine, frame_buffer);
+		update_frame(render_engine, frame_info);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
@@ -78,7 +78,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	// so visible plotted point may not be visible in that frame. Scaling is uniform. 
 	// 1 offset -> 0.02f
 	float scale_sensitivity = 0.001f; // 5 unit rolls will produce a magnification by a scale of 0.1f (not absolute magnification)
-	UserPtr* ptr = (UserPtr*)glfwGetWindowUserPointer(window);
+	Plotter* ptr = (Plotter*)glfwGetWindowUserPointer(window);
 	assert(ptr != NULL);
 	// Lol .. scale got negative once 
 	// assert(ptr->frame_ptr->scale_factor > 0.005f);
@@ -86,7 +86,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	fprintf(stderr, "\nY-offset produced is -> %lf.",yoffset);
 	fprintf(stderr, "\nCurrent scale factor is -> %lf.", ptr->frame_ptr->scale_factor);
 #endif
-	if ( (yoffset < -0.999f) && (ptr->frame_ptr->scale_factor <= 0.005f))
+	if ( (yoffset < -0.999f) && (ptr->frame_info->scale_factor <= 0.005f))
 	{
 		// Do nothing .. Hahahaha
 		// Lol still crashing .. don't know the reason 
@@ -94,8 +94,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	}
 	else
 	{
-		ptr->frame_ptr->scale_factor += yoffset * scale_sensitivity;
-		update_frame(ptr->render_ptr, ptr->frame_ptr);
+		ptr->frame_info->scale_factor += yoffset * scale_sensitivity;
+		update_frame(ptr->render_engine, ptr->frame_info);
 	}
 }
 
@@ -104,7 +104,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 // To support panning we need to check if the mouse button is kept pressed and it is changing 
 // Previous state of mouse and its position need to be stored and depending upon the difference in x and y coordinate of current 
 // and previous state 
-// hahaha .. let's put that into already passed struct frame_buffer .. Not relevant right .. but better than passing a new struct all over again
+// hahaha .. let's put that into already passed struct frame_info .. Not relevant right .. but better than passing a new struct all over again
 
 
 
@@ -141,21 +141,19 @@ Plotter* createPlotter(int width, int hight, float scale)
 	}
 
 	//// Allocate plotter on the heap 
+	// It need to be exlicitly allocated on the heap
 	Plotter* plotter = malloc(sizeof(Plotter));
 
 	////// Let's use modern opengl 
 	Renderer* render_engine = malloc(sizeof(Renderer));
+	viewInfo* frame_info = malloc(sizeof(viewInfo));
 
-	viewInfo* frame_buffer = malloc(sizeof(viewInfo));
+	// Set pointer for retrieving during callback function 
 
-	////// Set pointer for retrieving during callback function 
-	UserPtr* ptr = malloc(sizeof(UserPtr));
-	ptr->render_ptr = render_engine;
-	ptr->frame_ptr = frame_buffer;
-	glfwSetWindowUserPointer(window, ptr);
+	glfwSetWindowUserPointer(window, plotter);
 
-	initialize_renderer(render_engine, frame_buffer, 1200, 800);	
-	////update_plot(render_engine, frame_buffer);
+	initialize_renderer(render_engine, frame_info, 1200, 800);	
+	////update_plot(render_engine, frame_info);
 
 	mouseState* cursor_state = malloc(sizeof(mouseState));
 	cursor_state->is_was_pressed = false;
@@ -164,11 +162,9 @@ Plotter* createPlotter(int width, int hight, float scale)
 
 	// Get all informatio back to the calling function
 	plotter->window = window;
-	plotter->frame_buffer = frame_buffer;
+	plotter->frame_info = frame_info;
 	plotter->render_engine = render_engine;
 	plotter->cursor_state = cursor_state;
-	plotter->user_ptr = ptr;
-
 	return plotter;
 }
 
@@ -220,10 +216,10 @@ void mouse_panning(GLFWwindow* window, mouseState* cursor)
 	float dy = 2 * delta_ypos / (height);
 
 	// Maybe I should minimize use of userpointer . Don't know the performance penalty yet
-	UserPtr* ptr = (UserPtr*)glfwGetWindowUserPointer(window);
-	ptr->frame_ptr->origin_x += dx;
-	ptr->frame_ptr->origin_y -= dy;
-	update_frame(ptr->render_ptr, ptr->frame_ptr);
+	Plotter* ptr = (Plotter*)glfwGetWindowUserPointer(window);
+	ptr->frame_info->origin_x += dx;
+	ptr->frame_info->origin_y -= dy;
+	update_frame(ptr->render_engine, ptr->frame_info);
 
 	// Forgot to update the cursor_position 
 	cursor->xpos = x_pos;
@@ -234,7 +230,7 @@ void plot(Plotter* plotter)
 {
 	Renderer* render_engine = plotter->render_engine;
 	GLFWwindow* window = plotter->window;
-	viewInfo* frame_buffer = plotter->frame_buffer;
+	viewInfo* frame_info = plotter->frame_info;
 	mouseState* cursor_state = plotter->cursor_state;
 
 	GLuint color_loc = glGetUniformLocation(render_engine->shader_program, "color_code");
@@ -267,7 +263,7 @@ void plot(Plotter* plotter)
 			glBindVertexArray(render_engine->grid.grid_VAO);
 			glDrawArrays(GL_LINES, 0, render_engine->vertices_count[0] / 2);
 		}
-		handle_key_press(window, render_engine, frame_buffer);
+		handle_key_press(window, render_engine, frame_info);
 		mouse_panning(window, cursor_state);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -277,8 +273,7 @@ void plot(Plotter* plotter)
 void destroyPlotter(Plotter* plotter)
 {
 	free(plotter->render_engine);
-	free(plotter->frame_buffer);
-	free(plotter->user_ptr);
+	free(plotter->frame_info);
 	free(plotter->cursor_state);
 	glfwDestroyWindow(plotter->window);
 	//glfwTerminate();
@@ -287,11 +282,11 @@ void destroyPlotter(Plotter* plotter)
 void plotPixel(Plotter* plot_device, int x, int y)
 {
 	// I think I should add a function updatePixel to call update_plot when required
-	setPixel(plot_device->frame_buffer, (Point) { x, y });
+	setPixel(plot_device->frame_info, (Point) { x, y });
 }
 
 void updatePixel(Plotter* plot_device)
 {
 	glfwMakeContextCurrent(plot_device->window);
-	update_plot(plot_device->render_engine, plot_device->frame_buffer);
+	update_plot(plot_device->render_engine, plot_device->frame_info);
 }
