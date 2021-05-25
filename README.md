@@ -9,4 +9,11 @@ It supports basic features like : <br>
 Moving the grid left, right, top or down with directional arrow keys <br>
 Zooming in and out with mouse scroll key <br>
 Panning with left clicked and dragging <br>
-Quiting with ESC Key :D <br>
+Quiting with ESC Key :D <br><br>
+
+A line drawn form (1,0) to (7,4) using DDA line drawing algorithm <br>
+
+<p algin="center">
+	<img src="./includes/line_draw.png">
+</p>
+<br>
