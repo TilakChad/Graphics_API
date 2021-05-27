@@ -7,6 +7,11 @@
 #include <glad/glad.h>
 #include <stdbool.h>
 
+#define RENDER_ALL 0x08
+#define NO_GRIDS 0x04
+#define NO_PIXELS 0x02
+#define NO_ORIGIN 0x01
+
 typedef struct Point
 {
 	float x;
@@ -42,10 +47,15 @@ typedef struct Renderer
 	} plot;
 
 	// it's verbose but its ok for now 
-	enum
+	//enum
+	//{
+	//	RENDER_ALL, RENDER_NO_GRIDS, RENDER_NO_ORIGIN, RENDER_NO_PIXELS, RENDER_NO_GRIDS_AND_ORIGINS
+	//} render_type;
+
+	struct
 	{
-		RENDER_ALL, RENDER_NO_GRIDS, RENDER_NO_ORIGIN, RENDER_NO_PIXELS, RENDER_NO_GRIDS_AND_ORIGINS
-	} render_type;
+		bool render_all, render_no_grids, render_no_origin, render_no_pixel;
+	} render_flags;
 } Renderer;
 
 typedef struct viewInfo

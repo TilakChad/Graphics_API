@@ -33,4 +33,5 @@ void plot(Plotter*);
 void destroyPlotter(Plotter*);
 void plotPixel(Plotter*,int x, int y);
 void updatePixel(Plotter*);
+void setRenderOptions(Plotter* plot_device, unsigned char flag);
 #endif 
