@@ -112,7 +112,10 @@ int main()
 			plotPixel(plot_device_b, i, j);
 		}
 	}*/
-	 BressenhamLine(plot_device_b, 1, 0, 4, 7);
+
+	// Available options are RENDER_ALL, NO_GRIDS, NO_PIXELS, NO_ORIGIN
+	setRenderOptions(plot_device, NO_GRIDS);
+	BressenhamLine(plot_device_b, 1, 0, 4, 7);
 
 	updatePixel(plot_device);
 	// Once plotting started it can't be modified as of now.. Need to modify it to work like that though 
