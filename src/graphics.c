@@ -40,7 +40,7 @@ void handle_key_press(GLFWwindow* window, Renderer* render_engine, viewInfo* fra
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
 	{
 		// Since our aspect ratio assumes y-axis to be the standard, we gotta divide x axis by aspect ratio 
-		frame_info->origin_x += move_scale/frame_info->aspect_ratio ;
+		frame_info->origin_x += move_scale / frame_info->aspect_ratio;
 		should_update = true;
 	}
 
@@ -62,7 +62,7 @@ void handle_key_press(GLFWwindow* window, Renderer* render_engine, viewInfo* fra
 		should_update = true;
 	}
 
-	if(should_update)
+	if (should_update)
 		update_frame(render_engine, frame_info);
 }
 
@@ -83,10 +83,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	// Lol .. scale got negative once 
 	// assert(ptr->frame_ptr->scale_factor > 0.005f);
 #ifdef EN_LOG
-	fprintf(stderr, "\nY-offset produced is -> %lf.",yoffset);
+	fprintf(stderr, "\nY-offset produced is -> %lf.", yoffset);
 	fprintf(stderr, "\nCurrent scale factor is -> %lf.", ptr->frame_ptr->scale_factor);
 #endif
-	if ( (yoffset < -0.999f) && (ptr->frame_info->scale_factor <= 0.005f))
+	if ((yoffset < -0.999f) && (ptr->frame_info->scale_factor <= 0.005f))
 	{
 		// Do nothing .. Hahahaha
 		// Lol still crashing .. don't know the reason 
@@ -121,7 +121,7 @@ Plotter* createPlotter(int width, int hight, float scale)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	GLFWwindow* window = glfwCreateWindow(1200, 800, "Graphics", NULL, NULL);
-	
+
 	if (!window)
 	{
 		fprintf(stderr, "Failed to create new window. Exiting .. . \n");
@@ -152,7 +152,7 @@ Plotter* createPlotter(int width, int hight, float scale)
 
 	glfwSetWindowUserPointer(window, plotter);
 
-	initialize_renderer(render_engine, frame_info, 1200, 800);	
+	initialize_renderer(render_engine, frame_info, 1200, 800);
 	////update_plot(render_engine, frame_info);
 
 	mouseState* cursor_state = malloc(sizeof(mouseState));
@@ -243,26 +243,28 @@ void plot(Plotter* plotter)
 		// fprintf(stderr,"\nIt is : %d.",render_engine->shader_program);
 		glUseProgram(render_engine->shader_program);
 
-		if (render_engine->render_type != RENDER_NO_PIXELS)
+
+		if (render_engine->render_flags.render_all || !render_engine->render_flags.render_no_pixel)
 		{
 			glUniform1i(color_loc, 2);
 			glBindVertexArray(render_engine->plot.plot_VAO);
 			glDrawArrays(GL_TRIANGLES, 0, render_engine->vertices_count[2] / 2);
 		}
 
-		if ((render_engine->render_type != RENDER_NO_ORIGIN) && (render_engine->render_type != RENDER_NO_GRIDS_AND_ORIGINS))
+		if (render_engine->render_flags.render_all || !render_engine->render_flags.render_no_origin)
 		{
-				glUniform1i(color_loc, 1);	
-				glBindVertexArray(render_engine->origin.origin_VAO);
-				glDrawArrays(GL_TRIANGLES, 0, render_engine->vertices_count[1] / 2);
+			glUniform1i(color_loc, 1);
+			glBindVertexArray(render_engine->origin.origin_VAO);
+			glDrawArrays(GL_TRIANGLES, 0, render_engine->vertices_count[1] / 2);
 		}
 
-		if ((render_engine->render_type != RENDER_NO_GRIDS) && (render_engine->render_type != RENDER_NO_GRIDS_AND_ORIGINS))
+		if (render_engine->render_flags.render_all || !render_engine->render_flags.render_no_grids)
 		{
 			glUniform1i(color_loc, 0);
 			glBindVertexArray(render_engine->grid.grid_VAO);
 			glDrawArrays(GL_LINES, 0, render_engine->vertices_count[0] / 2);
 		}
+
 		handle_key_press(window, render_engine, frame_info);
 		mouse_panning(window, cursor_state);
 		glfwSwapBuffers(window);
@@ -289,4 +291,12 @@ void updatePixel(Plotter* plot_device)
 {
 	glfwMakeContextCurrent(plot_device->window);
 	update_plot(plot_device->render_engine, plot_device->frame_info);
+}
+
+void setRenderOptions(Plotter* plot_device, unsigned char flag)
+{
+	plot_device->render_engine->render_flags.render_all = flag & 0x08;
+	plot_device->render_engine->render_flags.render_no_grids = flag & 0x04;
+	plot_device->render_engine->render_flags.render_no_pixel = flag & 0x02;
+	plot_device->render_engine->render_flags.render_no_origin = flag & 0x01;
 }

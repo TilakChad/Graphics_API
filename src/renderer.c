@@ -159,7 +159,10 @@ int initialize_renderer(Renderer* render_engine, viewInfo* frame_info, int width
 	render_engine->origin.contain_VBO = false;
 
 	update_plot(render_engine, frame_info);
-	render_engine->render_type = RENDER_ALL;
+	render_engine->render_flags.render_all = true;
+	render_engine->render_flags.render_no_grids = false;
+	render_engine->render_flags.render_no_origin = false;
+	render_engine->render_flags.render_no_pixel = false;
 	return 0;
 }
 
